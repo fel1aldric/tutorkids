@@ -23,7 +23,7 @@ def _can_access_child(parent: Parent, child_id: Optional[str], db: Session) -> b
     if child_id is None:
         return True
     child = db.query(Child).filter(Child.id == child_id).first()
-    return child is not None and child.parent_id == parent.id
+    return child is not None and child in parent.children
 
 
 @router.post("/", response_model=EventRead)

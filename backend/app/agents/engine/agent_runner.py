@@ -173,6 +173,34 @@ def build_tools(db, parent: Optional[Parent], child: Optional[Child]):
         )
         return f"Événement créé : {event.title} le {event.start_at} (ID {event.id})."
 
+    @tool
+    def send_message_to_parents(
+        content: str,
+        child_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+    ) -> str:
+        """
+        Envoie un message à l'autre parent de la famille.
+        Précise l'enfant concerné avec child_id si le message le concerne.
+        Le contenu doit être clair et concis.
+        """
+        pid = parent_id or (parent.id if parent else None)
+        if not pid:
+            return "parent_id manquant."
+        if not content or not content.strip():
+            return "Le contenu du message est vide."
+
+        try:
+            result = agent_tools.send_message_to_parents(
+                db=db,
+                sender_parent_id=pid,
+                child_id=child_id,
+                content=content.strip(),
+            )
+            return result
+        except Exception as e:
+            return f"Erreur lors de l'envoi du message : {str(e)}"
+
     return {
         "get_today_events": get_today_events,
         "get_week_events": get_week_events,
@@ -180,6 +208,7 @@ def build_tools(db, parent: Optional[Parent], child: Optional[Child]):
         "get_child_profile": get_child_profile,
         "get_curriculum_for_level": get_curriculum_for_level,
         "add_event": add_event,
+        "send_message_to_parents": send_message_to_parents,
     }
 
 

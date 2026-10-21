@@ -68,7 +68,6 @@ def test_tool_add_event():
     db.refresh(parent)
 
     child = Child(
-        parent_id=parent.id,
         first_name="Léa",
         school_level_code="cp",
         language="fr",
@@ -76,6 +75,8 @@ def test_tool_add_event():
     db.add(child)
     db.commit()
     db.refresh(child)
+    parent.children.append(child)
+    db.commit()
 
     tools = build_tools(db, parent, child)
     add_event_tool = tools["add_event"]

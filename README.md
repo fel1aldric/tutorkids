@@ -121,9 +121,11 @@ Mettez `0` pour désactiver le nettoyage automatique (non recommandé en product
 
 - `parents` : comptes parents.
 - `children` : profils des enfants avec niveau scolaire évolutif.
+- `parent_child_links` : liaison many-to-many : un enfant peut avoir plusieurs parents, un parent peut avoir plusieurs enfants.
 - `school_levels` : niveaux scolaires (jardin d’enfants, maternelle, CP, CE1…).
 - `curriculum_items` : compétences / objectifs par niveau et matière.
 - `conversations` : historique des échanges avec les agents.
+- `family_messages` : messages entre parents liés par un ou plusieurs enfants.
 
 ## Endpoints principaux
 
@@ -144,12 +146,17 @@ Mettez `0` pour désactiver le nettoyage automatique (non recommandé en product
 | GET | `/children/{id}` | Parent | Voir un de ses enfants |
 | PUT | `/children/{id}` | Parent | Modifier un de ses enfants |
 | DELETE | `/children/{id}` | Parent | Supprimer un de ses enfants |
+| POST | `/children/{id}/link-parent` | Parent | Lier un autre parent à un enfant (garde alternée) |
 | POST | `/events/` | Parent | Créer un événement / devoir / activité |
 | GET | `/events/` | Parent | Lister les événements (filtres optionnels) |
 | GET | `/events/today` | Parent | Événements du jour |
 | GET | `/events/{id}` | Parent | Voir un événement |
 | PUT | `/events/{id}` | Parent | Modifier un événement |
 | DELETE | `/events/{id}` | Parent | Supprimer un événement |
+| POST | `/family-messages/` | Parent | Envoyer un message à un parent lié |
+| GET | `/family-messages/` | Parent | Lister ses messages |
+| GET | `/family-messages/threads` | Parent | Fil de discussion groupé par enfant |
+| GET | `/family-messages/parents` | Parent | Lister les parents avec qui on peut discuter |
 
 ## Exemple : parler à l’agent tuteur
 
@@ -238,10 +245,28 @@ curl -X POST http://localhost:8000/agents/chat \
 
 > L'agent reçoit automatiquement l'emploi du temps du jour et de la semaine, et dispose d'outils pour ajouter des événements.
 
+## Exemple : envoyer un message à l'autre parent via l'agent messager
+
+Le rôle `family_messenger` permet à un parent d'envoyer un message à l'autre parent de la famille (parents liés par au moins un enfant commun) :
+
+```bash
+curl -X POST http://localhost:8000/agents/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"role_id":"family_messenger","message":"Dis à Marie que je ramène Léa à 18h","voice":false}'
+```
+
+L'agent peut utiliser l'outil `send_message_to_parents` pour transmettre le message. Le fil de discussion est ensuite visible via :
+
+```bash
+curl http://localhost:8000/family-messages/threads \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ## Application mobile
 
 L'application React Native Expo se trouve dans `mobile/`. Elle permet :
-- **Parent** : connexion, gestion des enfants, **calendrier familial visuel** (vue jour et vue semaine), discussion avec l'agent emploi du temps ou le tuteur scolaire.
+- **Parent** : connexion, gestion des enfants, **calendrier familial visuel** (vue jour et vue semaine), **messagerie familiale** avec l'autre parent (fil de discussion par enfant), discussion avec l'agent emploi du temps, le tuteur scolaire ou l'agent messager.
 - **Enfant** : connexion avec email parent + ID + PIN, discussion avec le tuteur scolaire.
 - Chat texte + vocal, lecture audio de la réponse de l'agent.
 
@@ -298,3 +323,5 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 4. ✅ Nettoyage automatique local des fichiers audio TTS (24h par défaut, pas de cloud).
 5. ✅ Installation optimisée de Whisper et Piper en local (`scripts/setup_voice.sh` + endpoint `/health/voice`).
 6. ✅ Calendrier visuel par jour / semaine dans l'application mobile.
+7. ✅ Agent messager familial (`family_messenger`) : envoi de messages entre parents liés, fil de discussion par enfant dans l'app mobile, relation many-to-many parent-enfant.
+8. Notifications push pour les messages familiaux.

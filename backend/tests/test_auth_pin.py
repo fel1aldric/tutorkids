@@ -23,13 +23,15 @@ def test_login_child_pin():
     db.refresh(parent)
 
     child = Child(
-        parent_id=parent.id,
         first_name="Léa",
         school_level_code="cp",
         language="fr",
         pin_hash=hash_password("1234"),
     )
     db.add(child)
+    db.commit()
+    db.refresh(child)
+    parent.children.append(child)
     db.commit()
     db.refresh(child)
 

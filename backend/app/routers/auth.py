@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import verify_password, create_access_token, hash_password
 from app.models.parent import Parent
-from app.models.child import Child
+from app.models.child import Child, parent_child_links
 from app.schemas.parent import ParentCreate, ParentRead
 from app.schemas.auth import ParentLoginRequest, ChildLoginRequest, ChildPinLoginRequest
 
@@ -92,7 +92,9 @@ def login_child_pin(payload: ChildPinLoginRequest, db: Session = Depends(get_db)
 
     child = (
         db.query(Child)
-        .filter(Child.id == payload.child_id, Child.parent_id == parent.id)
+        .join(parent_child_links)
+        .filter(Child.id == payload.child_id)
+        .filter(parent_child_links.c.parent_id == parent.id)
         .first()
     )
     if child is None or child.pin_hash is None:

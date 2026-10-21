@@ -17,6 +17,14 @@ class Parent(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    children = relationship("Child", back_populates="parent", cascade="all, delete-orphan")
+    children = relationship(
+        "Child", secondary="parent_child_links", back_populates="parents"
+    )
     conversations = relationship("Conversation", back_populates="parent")
     events = relationship("Event", back_populates="parent", cascade="all, delete-orphan")
+    sent_messages = relationship(
+        "FamilyMessage", foreign_keys="FamilyMessage.sender_parent_id", back_populates="sender"
+    )
+    received_messages = relationship(
+        "FamilyMessage", foreign_keys="FamilyMessage.recipient_parent_id", back_populates="recipient"
+    )

@@ -70,6 +70,13 @@ export default function App() {
     recurrence: '',
   });
 
+  // Family messages
+  const [messageThreads, setMessageThreads] = useState([]);
+  const [linkedParents, setLinkedParents] = useState([]);
+  const [selectedMessageChildId, setSelectedMessageChildId] = useState(null);
+  const [newMessageText, setNewMessageText] = useState('');
+  const [selectedRecipientId, setSelectedRecipientId] = useState(null);
+
   useEffect(() => {
     Audio.requestPermissionsAsync().catch(() => {});
     fetchRoles();
@@ -414,6 +421,44 @@ export default function App() {
     if (Array.isArray(data)) setEvents(data);
   };
 
+  // --- Parent: Family Messages ---
+  const fetchMessageThreads = async () => {
+    const data = await api('/family-messages/threads');
+    if (Array.isArray(data)) {
+      setMessageThreads(data);
+      if (data.length > 0 && !selectedMessageChildId) {
+        const firstWithChild = data.find((t) => t.child_id) || data[0];
+        setSelectedMessageChildId(firstWithChild.child_id || 'general');
+      }
+    }
+  };
+
+  const fetchLinkedParents = async () => {
+    const data = await api('/family-messages/parents');
+    if (Array.isArray(data)) {
+      setLinkedParents(data);
+      if (data.length > 0 && !selectedRecipientId) {
+        setSelectedRecipientId(data[0].id);
+      }
+    }
+  };
+
+  const sendFamilyMessage = async () => {
+    if (!newMessageText.trim()) return;
+    if (!selectedRecipientId) return alert('Sélectionnez un parent destinataire');
+
+    await api('/family-messages/', {
+      method: 'POST',
+      body: {
+        content: newMessageText.trim(),
+        recipient_parent_id: selectedRecipientId,
+        child_id: selectedMessageChildId === 'general' ? null : selectedMessageChildId,
+      },
+    });
+    setNewMessageText('');
+    fetchMessageThreads();
+  };
+
   const createEvent = async () => {
     if (!newEvent.title.trim() || !newEvent.start_at.trim()) {
       return alert('Titre et date/heure de début requis');
@@ -534,6 +579,12 @@ export default function App() {
         onPress={() => { setParentTab('calendar'); fetchEvents(); }}
       >
         <Text style={parentTab === 'calendar' ? styles.tabTextActive : styles.tabText}>📅 Calendrier</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, parentTab === 'messages' && styles.tabActive]}
+        onPress={() => { setParentTab('messages'); fetchMessageThreads(); fetchLinkedParents(); }}
+      >
+        <Text style={parentTab === 'messages' ? styles.tabTextActive : styles.tabText}>✉️ Messages</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, parentTab === 'children' && styles.tabActive]}
@@ -908,8 +959,118 @@ export default function App() {
     </View>
   );
 
+  const renderMessagesScreen = () => {
+    const selectedThread = messageThreads.find(
+      (t) => (t.child_id || 'general') === selectedMessageChildId
+    );
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Messages familiaux</Text>
+          <Button title="Déconnexion" onPress={logout} />
+        </View>
+        {renderParentTabs()}
+
+        <ScrollView horizontal style={styles.messageThreadStrip} showsHorizontalScrollIndicator={false}>
+          {messageThreads.map((thread) => {
+            const key = thread.child_id || 'general';
+            const isSelected = selectedMessageChildId === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.messageThreadChip, isSelected && styles.messageThreadChipActive]}
+                onPress={() => setSelectedMessageChildId(key)}
+              >
+                <Text style={isSelected ? styles.messageThreadTextActive : styles.messageThreadText}>
+                  {thread.child_name || 'Général'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <ScrollView style={styles.messageList}>
+          {selectedThread ? (
+            selectedThread.messages.map((msg, idx) => {
+              const isMe = msg.sender_id === user?.id;
+              return (
+                <View
+                  key={msg.id || idx}
+                  style={[styles.messageBubble, isMe ? styles.messageBubbleMe : styles.messageBubbleOther]}
+                >
+                  <Text style={styles.messageSender}>
+                    {isMe ? 'Moi' : msg.sender_name}
+                  </Text>
+                  <Text style={styles.messageContent}>{msg.content}</Text>
+                  {msg.created_at && (
+                    <Text style={styles.messageTime}>
+                      {new Date(msg.created_at).toLocaleString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  )}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.empty}>
+              {messageThreads.length === 0
+                ? 'Aucun message. Sélectionnez un destinataire ci-dessous pour commencer.'
+                : 'Sélectionnez une discussion.'}
+            </Text>
+          )}
+        </ScrollView>
+
+        <View style={styles.messageComposer}>
+          {linkedParents.length > 0 && (
+            <View style={styles.pickerRow}>
+              <Text style={styles.label}>À :</Text>
+              {linkedParents.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[
+                    styles.recipientChip,
+                    selectedRecipientId === p.id && styles.recipientChipActive,
+                  ]}
+                  onPress={() => setSelectedRecipientId(p.id)}
+                >
+                  <Text
+                    style={
+                      selectedRecipientId === p.id
+                        ? styles.recipientChipTextActive
+                        : styles.recipientChipText
+                    }
+                  >
+                    {p.first_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          <TextInput
+            style={styles.input}
+            placeholder="Votre message..."
+            value={newMessageText}
+            onChangeText={setNewMessageText}
+            multiline
+          />
+          <Button
+            title="Envoyer"
+            onPress={sendFamilyMessage}
+            disabled={!newMessageText.trim() || !selectedRecipientId}
+          />
+        </View>
+      </View>
+    );
+  };
+
   const renderParentScreen = () => {
     if (parentTab === 'calendar') return renderCalendarScreen();
+    if (parentTab === 'messages') return renderMessagesScreen();
     if (parentTab === 'children') return renderChildrenScreen();
     return (
       <View style={styles.container}>
@@ -1386,6 +1547,81 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   childChipTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  messageThreadStrip: {
+    flexDirection: 'row',
+    marginVertical: 10,
+  },
+  messageThreadChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  messageThreadChipActive: {
+    backgroundColor: '#2e7d32',
+  },
+  messageThreadText: {
+    color: '#333',
+  },
+  messageThreadTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  messageList: {
+    flex: 1,
+  },
+  messageBubble: {
+    padding: 10,
+    borderRadius: 12,
+    marginVertical: 4,
+    maxWidth: '80%',
+  },
+  messageBubbleMe: {
+    backgroundColor: '#1565c0',
+    alignSelf: 'flex-end',
+  },
+  messageBubbleOther: {
+    backgroundColor: '#f0f0f0',
+    alignSelf: 'flex-start',
+  },
+  messageSender: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 2,
+    color: '#fff',
+  },
+  messageContent: {
+    color: '#fff',
+  },
+  messageTime: {
+    fontSize: 10,
+    color: '#e0e0e0',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  messageComposer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 8,
+  },
+  recipientChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+  },
+  recipientChipActive: {
+    backgroundColor: '#1565c0',
+  },
+  recipientChipText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  recipientChipTextActive: {
     color: '#fff',
     fontWeight: 'bold',
   },
