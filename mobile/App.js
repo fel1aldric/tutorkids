@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 // TODO: remplacer par l'IP locale du backend, ex: http://192.168.1.42:8000
 const API_URL = 'http://192.168.1.XX:8000';
@@ -79,8 +81,64 @@ export default function App() {
 
   useEffect(() => {
     Audio.requestPermissionsAsync().catch(() => {});
+    registerForPushNotifications();
     fetchRoles();
+
+    const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data || {};
+      if (data.type === 'family_message') {
+        fetchMessageThreads();
+      }
+    });
+
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data || {};
+      if (data.type === 'family_message') {
+        setParentTab('messages');
+        if (data.child_id) {
+          setSelectedMessageChildId(data.child_id);
+        }
+      }
+    });
+
+    return () => {
+      foregroundSubscription.remove();
+      responseSubscription.remove();
+    };
   }, []);
+
+  const registerForPushNotifications = async () => {
+    try {
+      if (!Device.isDevice) return;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') return;
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: 'tutorkids',
+      });
+      const token = tokenData.data;
+      if (token) {
+        await api('/parents/push-token', {
+          method: 'POST',
+          body: { push_token: token, push_provider: 'expo' },
+        });
+      }
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to register push token:', err);
+    }
+  };
 
   const fetchRoles = async () => {
     try {

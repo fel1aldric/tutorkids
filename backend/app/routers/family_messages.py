@@ -9,6 +9,7 @@ from app.models.parent import Parent
 from app.models.child import Child, parent_child_links
 from app.models.family_message import FamilyMessage
 from app.schemas.family_message import FamilyMessageCreate, FamilyMessageRead
+from app.services.push_service import get_push_service
 
 router = APIRouter(prefix="/family-messages", tags=["family_messages"])
 
@@ -63,6 +64,27 @@ def send_message(
     db.add(db_msg)
     db.commit()
     db.refresh(db_msg)
+
+    # Notify the recipient via push notification if they have a token.
+    try:
+        push_service = get_push_service()
+        recipient = db.query(Parent).filter(Parent.id == message.recipient_parent_id).first()
+        if recipient and recipient.push_token:
+            child_name = db_msg.child.first_name if db_msg.child else "Famille"
+            push_service.send_push(
+                push_tokens=[recipient.push_token],
+                title=f"Message de {parent.first_name} — {child_name}",
+                body=db_msg.content,
+                data={
+                    "type": "family_message",
+                    "message_id": db_msg.id,
+                    "child_id": db_msg.child_id,
+                    "sender_id": parent.id,
+                },
+            )
+    except Exception as exc:
+        print(f"[family_messages] Push notification failed: {exc}")
+
     return db_msg
 
 

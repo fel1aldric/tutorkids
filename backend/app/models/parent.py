@@ -14,6 +14,8 @@ class Parent(Base):
     hashed_password = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=True)
+    push_token = Column(String(255), nullable=True)
+    push_provider = Column(String(50), default="expo")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -33,3 +33,21 @@ def get_parent(
     if not parent:
         raise HTTPException(status_code=404, detail="Parent not found")
     return parent
+
+
+@router.post("/push-token")
+def register_push_token(
+    payload: dict,
+    db: Session = Depends(get_db),
+    parent: Parent = Depends(get_current_parent),
+):
+    """Register the current parent's Expo push notification token."""
+    token = payload.get("push_token")
+    provider = payload.get("push_provider", "expo")
+    if not token or not token.startswith("ExponentPushToken["):
+        raise HTTPException(status_code=400, detail="Invalid Expo push token")
+
+    parent.push_token = token
+    parent.push_provider = provider
+    db.commit()
+    return {"registered": True}

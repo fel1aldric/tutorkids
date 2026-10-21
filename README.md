@@ -147,6 +147,7 @@ Mettez `0` pour désactiver le nettoyage automatique (non recommandé en product
 | PUT | `/children/{id}` | Parent | Modifier un de ses enfants |
 | DELETE | `/children/{id}` | Parent | Supprimer un de ses enfants |
 | POST | `/children/{id}/link-parent` | Parent | Lier un autre parent à un enfant (garde alternée) |
+| POST | `/parents/push-token` | Parent | Enregistrer son token Expo pour les notifications push |
 | POST | `/events/` | Parent | Créer un événement / devoir / activité |
 | GET | `/events/` | Parent | Lister les événements (filtres optionnels) |
 | GET | `/events/today` | Parent | Événements du jour |
@@ -262,6 +263,17 @@ L'agent peut utiliser l'outil `send_message_to_parents` pour transmettre le mess
 curl http://localhost:8000/family-messages/threads \
   -H "Authorization: Bearer $TOKEN"
 ```
+
+## Notifications push (Expo)
+
+L'application mobile enregistre automatiquement son token Expo push auprès du backend au démarrage (`POST /parents/push-token`). Quand un message familial est envoyé, le destinataire reçoit une notification push avec :
+- le prénom de l'expéditeur,
+- le prénom de l'enfant concerné,
+- un extrait du message.
+
+Les données des messages restent stockées localement dans le backend ; seul le signal de notification passe par les serveurs Expo.
+
+> Pour recevoir les notifications push sur un vrai appareil, il faut compiler l'application avec EAS Build et configurer un projet Expo. En développement local avec `npx expo start`, les notifications push ne fonctionnent pas sur simulateur.
 
 ## Application mobile
 

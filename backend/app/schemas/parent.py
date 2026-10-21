@@ -14,6 +14,8 @@ class ParentCreate(ParentBase):
 
 class ParentRead(ParentBase):
     id: str
+    push_token: Optional[str] = None
+    push_provider: Optional[str] = None
 
     class Config:
         from_attributes = True
