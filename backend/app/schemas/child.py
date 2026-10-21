@@ -23,6 +23,7 @@ class ChildUpdate(BaseModel):
     language: Optional[str] = None
     interests: Optional[str] = None
     learning_style: Optional[str] = None
+    pin: Optional[str] = None
 
 
 class ChildRead(ChildBase):

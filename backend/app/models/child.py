@@ -17,6 +17,7 @@ class Child(Base):
     language = Column(String(10), default="fr")
     interests = Column(Text, nullable=True)
     learning_style = Column(String(50), default="mixed")
+    pin_hash = Column(String(255), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -24,3 +25,4 @@ class Child(Base):
     parent = relationship("Parent", back_populates="children")
     school_level = relationship("SchoolLevel", back_populates="children")
     conversations = relationship("Conversation", back_populates="child", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="child", cascade="all, delete-orphan")

@@ -13,10 +13,7 @@ persona: |
   Reste toujours bienveillant, jamais condescendant.
 allowed_tools:
   - get_child_profile
-  - get_curriculum
-  - ask_question
-  - give_quiz
-  - explain_concept
+  - get_curriculum_for_level
 voice:
   enabled: true
   language: "fr"

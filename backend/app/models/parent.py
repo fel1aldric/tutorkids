@@ -19,4 +19,4 @@ class Parent(Base):
 
     children = relationship("Child", back_populates="parent", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="parent")
-    conversations = relationship("Conversation", back_populates="parent")
+    events = relationship("Event", back_populates="parent", cascade="all, delete-orphan")

@@ -7,7 +7,7 @@ from alembic import context
 
 # Import app models so Base.metadata is populated.
 from app.database import Base
-from app.models import Parent, Child, SchoolLevel, CurriculumItem, Conversation
+from app.models import Parent, Child, SchoolLevel, CurriculumItem, Conversation, Event
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

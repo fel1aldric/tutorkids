@@ -64,7 +64,13 @@ def update_child(
         raise HTTPException(status_code=404, detail="Child not found")
     if not _can_access_child(parent, child):
         raise HTTPException(status_code=403, detail="Access denied")
-    for key, value in child_update.model_dump(exclude_unset=True).items():
+    update_data = child_update.model_dump(exclude_unset=True)
+    if "pin" in update_data:
+        from app.auth import hash_password
+        pin_value = update_data.pop("pin")
+        child.pin_hash = hash_password(pin_value) if pin_value else None
+
+    for key, value in update_data.items():
         setattr(child, key, value)
     db.commit()
     db.refresh(child)

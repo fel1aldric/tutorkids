@@ -105,7 +105,8 @@ pip install piper-tts
 | GET | `/health` | Non | Vérifier que le backend est up |
 | POST | `/auth/register-parent` | Non | Inscrire un parent |
 | POST | `/auth/login-parent` | Non | Connecter un parent (retourne JWT) |
-| POST | `/auth/login-child` | Non | Connecter un enfant avec son UUID (MVP) |
+| POST | `/auth/login-child` | Non | Connecter un enfant avec son UUID (déprécié) |
+| POST | `/auth/login-child-pin` | Non | Connecter un enfant avec email parent + ID + PIN |
 | GET | `/agents/roles` | Non | Lister les rôles disponibles |
 | POST | `/agents/chat` | Oui | Envoyer un message texte à un agent |
 | POST | `/agents/chat-voice` | Oui | Envoyer un fichier audio, recevoir texte + audio |
@@ -116,6 +117,12 @@ pip install piper-tts
 | GET | `/children/{id}` | Parent | Voir un de ses enfants |
 | PUT | `/children/{id}` | Parent | Modifier un de ses enfants |
 | DELETE | `/children/{id}` | Parent | Supprimer un de ses enfants |
+| POST | `/events/` | Parent | Créer un événement / devoir / activité |
+| GET | `/events/` | Parent | Lister les événements (filtres optionnels) |
+| GET | `/events/today` | Parent | Événements du jour |
+| GET | `/events/{id}` | Parent | Voir un événement |
+| PUT | `/events/{id}` | Parent | Modifier un événement |
+| DELETE | `/events/{id}` | Parent | Supprimer un événement |
 
 ## Exemple : parler à l’agent tuteur
 
@@ -145,13 +152,22 @@ CHILD=$(curl -s -X POST http://localhost:8000/children/ \
 echo "$CHILD"
 ```
 
-Connecter l'enfant :
+Définir un PIN pour l'enfant (depuis le parent) :
 
 ```bash
 CHILD_ID=$(echo "$CHILD" | jq -r '.id')
-CHILD_TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-child \
+curl -X PUT "http://localhost:8000/children/$CHILD_ID" \
   -H "Content-Type: application/json" \
-  -d "{\"child_id\":\"$CHILD_ID\"}" | jq -r '.access_token')
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"pin":"1234"}'
+```
+
+Connecter l'enfant avec son PIN :
+
+```bash
+CHILD_TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-child-pin \
+  -H "Content-Type: application/json" \
+  -d "{\"parent_email\":\"mere@famille.fr\",\"child_id\":\"$CHILD_ID\",\"pin\":\"1234\"}" | jq -r '.access_token')
 ```
 
 Chat texte en tant qu'enfant :
@@ -173,14 +189,34 @@ curl -X POST http://localhost:8000/agents/chat-voice \
   -F "audio_file=@recording.wav"
 ```
 
+## Exemple : ajouter un événement via l'agent mère
+
+En tant que parent, demandez à l'agent emploi du temps de créer un rappel :
+
+```bash
+curl -X POST http://localhost:8000/agents/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"role_id":"mother_schedule","message":"Ajoute un rendez-vous chez le médecin pour Léa demain à 14h","voice":false}'
+```
+
+L'agent peut aussi récapituler la journée :
+
+```bash
+curl -X POST http://localhost:8000/agents/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"role_id":"mother_schedule","message":"Quel est l'emploi du temps de Léa aujourd'hui ?","voice":false}'
+```
+
+> L'agent reçoit automatiquement l'emploi du temps du jour et de la semaine, et dispose d'outils pour ajouter des événements.
+
 ## Application mobile
 
 L'application React Native Expo se trouve dans `mobile/`. Elle permet :
-- de choisir un agent,
-- de saisir l'ID d'un enfant,
-- d'envoyer des messages texte,
-- d'enregistrer un message vocal,
-- de lire la réponse audio de l'agent.
+- **Parent** : connexion, gestion des enfants, calendrier familial, discussion avec l'agent emploi du temps ou le tuteur scolaire.
+- **Enfant** : connexion avec email parent + ID + PIN, discussion avec le tuteur scolaire.
+- Chat texte + vocal, lecture audio de la réponse de l'agent.
 
 ```bash
 cd tutorkids/mobile
@@ -216,7 +252,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## Prochaines étapes
 
-1. Gestion de l’emploi du temps : events, reminders, calendrier pour la mère.
-2. Stockage cloud des fichiers audio (S3 / MinIO) ou nettoyage automatique.
-3. Installation optimisée de Whisper et Piper en local.
-4. Améliorer la sécurité enfant : PIN à la place de l'UUID pour le login.
+1. ✅ Gestion de l’emploi du temps : events, reminders, calendrier pour la mère.
+2. ✅ Sécurité enfant : login par PIN (email parent + ID + PIN).
+3. ✅ Écran calendrier / emploi du temps dans l'application mobile.
+4. Stockage cloud des fichiers audio (S3 / MinIO) ou nettoyage automatique.
+5. Installation optimisée de Whisper et Piper en local.
+6. Calendrier visuel par jour / semaine dans l'application mobile.
