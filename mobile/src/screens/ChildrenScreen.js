@@ -5,6 +5,7 @@ import {
   TextInput,
   Button,
   ScrollView,
+  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import Header from '../components/Header';
@@ -114,6 +115,16 @@ export default function ChildrenScreen({
                   keyboardType="number-pad"
                   maxLength={6}
                 />
+                <Text style={commonStyles.label}>Durée de concentration (minutes)</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="15"
+                  value={String(editingChild.focus_duration_minutes || 15)}
+                  onChangeText={(t) =>
+                    setEditingChild({ ...editingChild, focus_duration_minutes: parseInt(t, 10) || 0 })
+                  }
+                  keyboardType="number-pad"
+                />
                 <View style={commonStyles.row}>
                   <Button title="Enregistrer" onPress={onUpdateChild} />
                   <Button title="Annuler" onPress={() => setEditingChild(null)} />
@@ -128,6 +139,7 @@ export default function ChildrenScreen({
                 {c.interests && <Text style={commonStyles.cardMeta}>Intérêts : {c.interests}</Text>}
                 {c.pin_hash && <Text style={commonStyles.cardMeta}>🔒 PIN configuré</Text>}
                 {!c.pin_hash && <Text style={commonStyles.cardMeta}>⚠️ PIN non configuré</Text>}
+                <Text style={commonStyles.cardMeta}>🎯 Concentration : {c.focus_duration_minutes || 15} min</Text>
                 <View style={commonStyles.row}>
                   <Button title="Modifier" onPress={() => setEditingChild({ ...c, pin: '' })} />
                   <Button title="Supprimer" color="#d32f2f" onPress={() => onDeleteChild(c.id)} />
@@ -140,8 +152,6 @@ export default function ChildrenScreen({
     </View>
   );
 }
-
-import { TouchableOpacity } from 'react-native';
 
 const styles = StyleSheet.create({
   formSection: {

@@ -32,6 +32,12 @@ alembic upgrade head
 # Peupler les données de base (niveaux scolaires, compétences)
 python seed_data.py
 
+# En cas d'erreur Alembic suite à une base de développement corrompue :
+# rm tutorkids_dev.db
+# alembic upgrade head
+# python seed_data.py
+# (Cela supprime les données locales de développement.)
+
 # Démarrer le serveur en mode développement
 ./run_dev.sh
 ```
@@ -173,7 +179,7 @@ source venv/bin/activate
 pytest tests/ -v
 ```
 
-Résultat attendu : **tous les tests passent** (actuellement 24 passed).
+Résultat attendu : **tous les tests passent** (actuellement 29 passed).
 
 ### Lancer un test spécifique
 
@@ -187,6 +193,7 @@ pytest tests/test_auth_pin.py -v
 pytest tests/test_voice_status.py -v
 pytest tests/test_audio_cleanup.py -v
 pytest tests/test_roles.py -v
+pytest tests/test_focus_mode.py -v
 ```
 
 ---
@@ -270,6 +277,24 @@ Réponse attendue (si Whisper/Piper installés via `scripts/setup_voice.sh`) :
   "local_only": true,
   "cloud": false
 }
+```
+
+### 6.7 Configurer le mode concentration
+
+```bash
+# Définir la durée de concentration par défaut (minutes)
+curl -X PUT "http://localhost:8000/children/$CHILD_ID" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"focus_duration_minutes":20}'
+
+# Démarrer une session de concentration
+curl -X POST "http://localhost:8000/focus/$CHILD_ID/start" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"topic":"Mathématiques","agent_role_id":"kids_tutor"}'
+
+# Le backend utilise la durée configurée sur l'enfant (20 min par défaut)
 ```
 
 ---
@@ -394,7 +419,40 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 12. Tests de non-régression
+## 12. Vérifications fonctionnelles — Mode Concentration
+
+### 12.1 Configurer la durée côté parent
+
+1. Se connecter en tant que parent.
+2. Aller dans l'onglet **👶 Enfants**.
+3. Modifier un enfant et changer la **durée de concentration** (ex: 15 min).
+4. Enregistrer.
+
+### 12.2 Lancer une session côté enfant
+
+1. Se connecter en tant qu'enfant avec le PIN.
+2. Basculer sur l'onglet **🎯 Concentration**.
+3. Choisir une durée ou utiliser la durée par défaut.
+4. Appuyer sur le bouton de lancement : le compte à rebours démarre.
+5. Discuter avec le tuteur scolaire pendant la session.
+6. À la fin, appuyer sur **Terminer la session**.
+
+### 12.3 Vérifier le récapitulatif
+
+```bash
+curl http://localhost:8000/focus/summary/dashboard \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Vérifier que :
+
+- Le total de minutes apparaît pour l'enfant concerné.
+- Le nombre de sessions terminées est incrémenté.
+- Une ligne dans le dashboard mobile affiche le temps de concentration de la journée.
+
+---
+
+## 13. Tests de non-régression
 
 ### Multi-parent
 
@@ -411,7 +469,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 13. Dépannage courant
+## 14. Dépannage courant
 
 ### `ModuleNotFoundError` lors des tests
 
@@ -428,8 +486,8 @@ La base de données est dans un état ancien. Réinitialiser :
 cd tutorkids/backend
 rm tutorkids_dev.db
 source venv/bin/activate
+alembic upgrade head
 python seed_data.py
-alembic stamp head
 ```
 
 > Attention : cela supprime toutes les données locales de développement.
@@ -437,7 +495,7 @@ alembic stamp head
 ### Le mobile ne trouve pas le backend
 
 - Vérifier que le téléphone et le PC sont sur le même réseau Wi-Fi.
-- Vérifier que `API_URL` dans `mobile/App.js` utilise l'IP locale du PC (pas `localhost`).
+- Vérifier que `API_URL` dans `mobile/src/config.js` utilise l'IP locale du PC (pas `localhost`).
 - Vérifier que le backend écoute sur `0.0.0.0` (`uvicorn app.main:app --host 0.0.0.0 --port 8000`).
 
 ### Ollama ne répond pas
@@ -456,7 +514,7 @@ ollama run gpt-oss:20b-cloud
 
 ---
 
-## 14. Résumé des commandes essentielles
+## 15. Résumé des commandes essentielles
 
 | Action | Commande |
 | --- | --- |

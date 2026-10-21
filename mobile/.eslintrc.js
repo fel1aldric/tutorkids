@@ -19,7 +19,7 @@ module.exports = {
     "react",
   ],
   rules: {
-    "no-unused-vars": ["warn", { argsIgnorePattern: "^_|^user$|^onFetch" }],
+    "no-unused-vars": ["warn", { argsIgnorePattern: "^_|^user$|^onFetch|^childId$" }],
     "react/jsx-uses-react": "warn",
     "react/jsx-uses-vars": "warn",
   },

@@ -10,6 +10,7 @@ class ChildBase(BaseModel):
     language: str = "fr"
     interests: Optional[str] = None
     learning_style: str = "mixed"
+    focus_duration_minutes: int = 15
 
 
 class ChildCreate(ChildBase):
@@ -24,6 +25,7 @@ class ChildUpdate(BaseModel):
     interests: Optional[str] = None
     learning_style: Optional[str] = None
     pin: Optional[str] = None
+    focus_duration_minutes: Optional[int] = None
 
 
 class ChildRead(ChildBase):

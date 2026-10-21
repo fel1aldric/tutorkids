@@ -5,15 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.database import engine, Base
-from app.routers import agents, auth, children, events, parents, family_messages
+from app.routers import agents, auth, children, events, parents, family_messages, focus
 from app.services.audio_cleanup import cleanup_audio_outputs, start_audio_cleanup_task
 from app.services.stt_service import get_stt_service
 from app.services.tts_service import get_tts_service
-
-# Create all tables at startup for dev convenience.
-# Use Alembic for real migrations in production.
-Base.metadata.create_all(bind=engine)
 
 # Ensure audio output directory exists for TTS files.
 Path("./audio_outputs").mkdir(exist_ok=True)
@@ -55,6 +50,7 @@ app.include_router(children.router)
 app.include_router(events.router)
 app.include_router(parents.router)
 app.include_router(family_messages.router)
+app.include_router(focus.router)
 
 app.mount("/audio", StaticFiles(directory="audio_outputs"), name="audio")
 

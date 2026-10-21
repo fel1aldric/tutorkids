@@ -104,3 +104,24 @@ def get_current_child_or_parent(
         return {"type": "child", "user": child}
 
     raise HTTPException(status_code=401, detail="Invalid token type")
+
+
+def get_current_child(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> Child:
+    token = credentials.credentials
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "child":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing child token",
+        )
+    child_id = payload.get("sub")
+    child = db.query(Child).filter(Child.id == child_id).first()
+    if child is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Child not found",
+        )
+    return child

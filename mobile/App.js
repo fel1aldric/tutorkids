@@ -5,6 +5,7 @@ import ParentScreen from './src/screens/ParentScreen';
 import ChildScreen from './src/screens/ChildScreen';
 import { useAuth } from './src/hooks/useAuth';
 import { useChat } from './src/hooks/useChat';
+import { useFocus } from './src/hooks/useFocus';
 import { useChildren } from './src/hooks/useChildren';
 import { useEvents } from './src/hooks/useEvents';
 import { useMessages } from './src/hooks/useMessages';
@@ -24,6 +25,10 @@ export default function App() {
   const chat = useChat({
     userType: auth.userType,
     selectedChildId: children.selectedChildId,
+  });
+
+  const focus = useFocus({
+    childId: auth.user?.id,
   });
 
   useEffect(() => {
@@ -90,6 +95,7 @@ export default function App() {
       user={auth.user}
       roles={roles.roles}
       chat={chat}
+      focus={focus}
       onLogout={auth.logout}
     />
   );

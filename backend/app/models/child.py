@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Text, Table
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Text, Table, Integer
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -25,6 +25,7 @@ class Child(Base):
     interests = Column(Text, nullable=True)
     learning_style = Column(String(50), default="mixed")
     pin_hash = Column(String(255), nullable=True)
+    focus_duration_minutes = Column(Integer, default=15, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -36,3 +37,4 @@ class Child(Base):
     conversations = relationship("Conversation", back_populates="child", cascade="all, delete-orphan")
     events = relationship("Event", back_populates="child", cascade="all, delete-orphan")
     family_messages = relationship("FamilyMessage", back_populates="child")
+    focus_sessions = relationship("FocusSession", back_populates="child", cascade="all, delete-orphan")

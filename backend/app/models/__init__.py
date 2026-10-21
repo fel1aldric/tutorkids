@@ -5,6 +5,7 @@ from app.models.curriculum import CurriculumItem
 from app.models.conversation import Conversation
 from app.models.event import Event
 from app.models.family_message import FamilyMessage
+from app.models.focus_session import FocusSession
 
 __all__ = [
     "Parent",
@@ -14,4 +15,5 @@ __all__ = [
     "Conversation",
     "Event",
     "FamilyMessage",
+    "FocusSession",
 ]

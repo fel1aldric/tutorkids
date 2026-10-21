@@ -35,7 +35,9 @@ export default function ParentScreen({
       messages.fetchMessageThreads();
       messages.fetchLinkedParents();
     }
-    if (tab === 'children') children.fetchChildren();
+    if (tab === 'children') {
+      children.fetchChildren();
+    }
   };
 
   const handleOpenMessages = (childId) => {
