@@ -100,62 +100,75 @@ pip install piper-tts
 
 ## Endpoints principaux
 
-| Méthode | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/health` | Vérifier que le backend est up |
-| GET | `/agents/roles` | Lister les rôles disponibles |
-| POST | `/agents/chat` | Envoyer un message texte à un agent |
-| POST | `/agents/chat-voice` | Envoyer un fichier audio, recevoir texte + audio |
-| POST | `/parents/` | Créer un parent |
-| GET | `/parents/` | Lister les parents |
-| POST | `/children/` | Créer un enfant |
-| GET | `/children/` | Lister les enfants |
-| PUT | `/children/{id}` | Modifier un enfant (changer de niveau scolaire) |
+| Méthode | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/health` | Non | Vérifier que le backend est up |
+| POST | `/auth/register-parent` | Non | Inscrire un parent |
+| POST | `/auth/login-parent` | Non | Connecter un parent (retourne JWT) |
+| POST | `/auth/login-child` | Non | Connecter un enfant avec son UUID (MVP) |
+| GET | `/agents/roles` | Non | Lister les rôles disponibles |
+| POST | `/agents/chat` | Oui | Envoyer un message texte à un agent |
+| POST | `/agents/chat-voice` | Oui | Envoyer un fichier audio, recevoir texte + audio |
+| GET | `/parents/me` | Parent | Profil du parent connecté |
+| GET | `/parents/` | Parent | Lister les parents |
+| POST | `/children/` | Parent | Créer un enfant (assigné au parent connecté) |
+| GET | `/children/` | Parent | Lister ses enfants |
+| GET | `/children/{id}` | Parent | Voir un de ses enfants |
+| PUT | `/children/{id}` | Parent | Modifier un de ses enfants |
+| DELETE | `/children/{id}` | Parent | Supprimer un de ses enfants |
 
 ## Exemple : parler à l’agent tuteur
 
-Créer un parent :
+Inscrire un parent :
 
 ```bash
-curl -X POST http://localhost:8000/parents/ \
+curl -X POST http://localhost:8000/auth/register-parent \
   -H "Content-Type: application/json" \
   -d '{"email":"mere@famille.fr","first_name":"Marie","last_name":"Dupont","password":"secret"}'
 ```
 
-Créer un enfant (remplacez `PARENT_ID`) :
+Connecter le parent :
 
 ```bash
-curl -X POST http://localhost:8000/children/ \
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-parent \
   -H "Content-Type: application/json" \
-  -d '{
-    "first_name": "Léa",
-    "birth_date": "2019-03-15",
-    "school_level_code": "jardin_d_enfants",
-    "parent_id": "PARENT_ID",
-    "interests": "dinosaures, dessin",
-    "learning_style": "visuel"
-  }'
+  -d '{"email":"mere@famille.fr","password":"secret"}' | jq -r '.access_token')
 ```
 
-Chat texte (remplacez `CHILD_ID`) :
+Créer un enfant :
+
+```bash
+CHILD=$(curl -s -X POST http://localhost:8000/children/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"first_name":"Léa","birth_date":"2019-03-15","school_level_code":"jardin_d_enfants","interests":"dinosaures, dessin"}')
+echo "$CHILD"
+```
+
+Connecter l'enfant :
+
+```bash
+CHILD_ID=$(echo "$CHILD" | jq -r '.id')
+CHILD_TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-child \
+  -H "Content-Type: application/json" \
+  -d "{\"child_id\":\"$CHILD_ID\"}" | jq -r '.access_token')
+```
+
+Chat texte en tant qu'enfant :
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat \
   -H "Content-Type: application/json" \
-  -d '{
-    "role_id": "kids_tutor",
-    "message": "Bonjour, je veux apprendre les dinosaures",
-    "child_id": "CHILD_ID",
-    "voice": true
-  }'
+  -H "Authorization: Bearer $CHILD_TOKEN" \
+  -d '{"role_id":"kids_tutor","message":"Bonjour, je veux apprendre les dinosaures","voice":true}'
 ```
 
-Chat vocal (remplacez `CHILD_ID` et `recording.wav`) :
+Chat vocal en tant qu'enfant :
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat-voice \
+  -H "Authorization: Bearer $CHILD_TOKEN" \
   -F "role_id=kids_tutor" \
-  -F "child_id=CHILD_ID" \
   -F "voice=true" \
   -F "audio_file=@recording.wav"
 ```
@@ -203,7 +216,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## Prochaines étapes
 
-1. Authentification JWT pour parents et enfants.
-2. Gestion de l’emploi du temps : events, reminders, calendrier.
-3. Stockage cloud des fichiers audio (S3 / MinIO).
-4. Installation optimisée de Whisper et Piper en local.
+1. Gestion de l’emploi du temps : events, reminders, calendrier pour la mère.
+2. Stockage cloud des fichiers audio (S3 / MinIO) ou nettoyage automatique.
+3. Installation optimisée de Whisper et Piper en local.
+4. Améliorer la sécurité enfant : PIN à la place de l'UUID pour le login.
