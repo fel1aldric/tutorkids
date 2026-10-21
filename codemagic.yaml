@@ -1,0 +1,91 @@
+# Codemagic CI/CD configuration for TutorKids mobile app (Expo EAS builds)
+# Documentation: https://docs.codemagic.io/yaml/yaml-getting-started/
+
+workflows:
+  android-apk-preview:
+    name: Android APK Preview
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 20
+      vars:
+        EXPO_TOKEN: EXPO_TOKEN
+        EAS_NO_DEFAULT_GIT_CHECK: true
+      android_signing:
+        - tutorkids_keystore
+    scripts:
+      - name: Install EAS CLI
+        script: |
+          npm install -g eas-cli@latest
+      - name: Install dependencies
+        script: |
+          cd mobile
+          npm install
+      - name: Configure EAS project ID
+        script: |
+          cd mobile
+          jq --arg projectId "$EAS_PROJECT_ID" '.expo.extra.eas.projectId = $projectId' app.json > app.json.tmp && mv app.json.tmp app.json
+        env:
+          EAS_PROJECT_ID: EAS_PROJECT_ID
+      - name: Build Android APK with EAS
+        script: |
+          cd mobile
+          eas build --platform android --profile preview --non-interactive --no-wait
+
+  android-aab-production:
+    name: Android AAB Production
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 20
+      vars:
+        EXPO_TOKEN: EXPO_TOKEN
+        EAS_NO_DEFAULT_GIT_CHECK: true
+      android_signing:
+        - tutorkids_keystore
+    scripts:
+      - name: Install EAS CLI
+        script: |
+          npm install -g eas-cli@latest
+      - name: Install dependencies
+        script: |
+          cd mobile
+          npm install
+      - name: Configure EAS project ID
+        script: |
+          cd mobile
+          jq --arg projectId "$EAS_PROJECT_ID" '.expo.extra.eas.projectId = $projectId' app.json > app.json.tmp && mv app.json.tmp app.json
+        env:
+          EAS_PROJECT_ID: EAS_PROJECT_ID
+      - name: Build Android AAB with EAS
+        script: |
+          cd mobile
+          eas build --platform android --profile production --non-interactive --no-wait
+
+  mobile-tests:
+    name: Mobile Tests
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      node: 20
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd mobile
+          npm install
+      - name: Run ESLint / syntax check
+        script: |
+          cd mobile
+          npx eslint App.js || true
+      - name: Check syntax with Babel
+        script: |
+          cd mobile
+          node -e "
+            const fs = require('fs');
+            const babel = require('@babel/core');
+            const code = fs.readFileSync('App.js', 'utf8');
+            babel.parseSync(code, { filename: 'App.js', presets: ['@babel/preset-react'] });
+            console.log('Syntax OK');
+          "
+
+# Publishing artifacts is handled by EAS; download links appear in the EAS dashboard.

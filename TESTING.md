@@ -66,7 +66,106 @@ npx expo start
 
 ---
 
-## 4. Tests automatiques du backend
+## 4. Build Android avec Codemagic + Expo EAS
+
+### 4.1 Prérequis
+
+- Compte **Expo** et projet EAS créé : https://expo.dev
+- Compte **Codemagic** : https://codemagic.io
+- EAS CLI installé localement :
+  ```bash
+  npm install -g eas-cli
+  ```
+- Créer le projet EAS dans `mobile/` :
+  ```bash
+  cd tutorkids/mobile
+  eas login
+  eas init
+  ```
+  Récupérer le `projectId` affiché (il sera utilisé comme variable d'environnement `EAS_PROJECT_ID` dans Codemagic).
+
+### 4.2 Générer le keystore Android
+
+```bash
+cd tutorkids/mobile
+./scripts/generate-keystore.sh
+```
+
+Ce script crée :
+- Un fichier `tutorkids-release.keystore`
+- Un mot de passe keystore
+- Un alias de clé
+- Un mot de passe de clé
+
+> **Ne jamais commiter le fichier `.keystore` ni les mots de passe.** Conservez-les dans un gestionnaire de mots de passe sécurisé.
+
+### 4.3 Configurer les secrets dans Codemagic
+
+Dans l'interface Codemagic, pour l'application TutorKids :
+
+1. **Variables d'environnement (Environment variables)** :
+   - `EXPO_TOKEN` : token d'accès personnel Expo (https://expo.dev/settings/access-tokens)
+   - `EAS_PROJECT_ID` : l'identifiant du projet EAS
+   - `ANDROID_KEYSTORE_PASSWORD` : mot de passe du keystore
+   - `ANDROID_KEY_PASSWORD` : mot de passe de la clé
+   - `ANDROID_KEY_ALIAS` : alias de la clé (par défaut `tutorkids`)
+
+2. **Fichier de signature Android (Android code signing)** :
+   - Uploader le fichier `tutorkids-release.keystore`.
+   - Nommer le fichier de signature : `tutorkids_keystore`.
+
+### 4.4 Fichiers de configuration
+
+Les fichiers suivants sont déjà présents dans le dépôt :
+
+- `tutorkids/mobile/app.json` : configuration Expo avec placeholders pour les assets.
+- `tutorkids/mobile/eas.json` : profils de build (`preview` = APK, `production` = AAB).
+- `tutorkids/codemagic.yaml` : workflows CI/CD pour Codemagic.
+
+Avant le premier build, remplacez `your-eas-project-id` dans `mobile/app.json` par le vrai `projectId`, ou laissez Codemagic l'injecter via la variable `EAS_PROJECT_ID`.
+
+### 4.5 Lancer un build APK (test interne)
+
+Dans Codemagic, lancer le workflow **Android APK Preview**.
+
+Il exécute :
+```bash
+eas build --platform android --profile preview --non-interactive --no-wait
+```
+
+Le lien de téléchargement APK apparaît dans le dashboard EAS une fois le build terminé.
+
+### 4.6 Lancer un build AAB (Google Play Store)
+
+Dans Codemagic, lancer le workflow **Android AAB Production**.
+
+Il exécute :
+```bash
+eas build --platform android --profile production --non-interactive --no-wait
+```
+
+Le fichier `.aab` généré peut être soumis manuellement ou automatiquement au Play Console via `eas submit`.
+
+### 4.7 Installer et tester l'APK
+
+```bash
+# Sur un appareil Android connecté en USB avec adb activé
+adb install -r chemin/vers/app-preview.apk
+
+# Lancer l'application
+adb shell am start -n com.tutorkids.ai/.MainActivity
+```
+
+### 4.8 Workflow de tests mobiles
+
+Le workflow **Mobile Tests** dans `codemagic.yaml` vérifie :
+- L'installation des dépendances npm.
+- La syntaxe du fichier `App.js` avec Babel.
+- (Optionnel) ESLint.
+
+---
+
+## 5. Tests automatiques du backend
 
 ```bash
 cd tutorkids/backend
@@ -92,9 +191,9 @@ pytest tests/test_roles.py -v
 
 ---
 
-## 5. Vérifications fonctionnelles — API
+## 6. Vérifications fonctionnelles — API
 
-### 5.1 Inscription et connexion parent
+### 6.1 Inscription et connexion parent
 
 ```bash
 # Inscrire un parent
@@ -110,7 +209,7 @@ TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-parent \
 echo $TOKEN
 ```
 
-### 5.2 Créer un enfant et définir un PIN
+### 6.2 Créer un enfant et définir un PIN
 
 ```bash
 CHILD=$(curl -s -X POST http://localhost:8000/children/ \
@@ -128,7 +227,7 @@ curl -X PUT "http://localhost:8000/children/$CHILD_ID" \
   -d '{"pin":"1234"}'
 ```
 
-### 5.3 Connexion enfant avec PIN
+### 6.3 Connexion enfant avec PIN
 
 ```bash
 CHILD_TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-child-pin \
@@ -138,7 +237,7 @@ CHILD_TOKEN=$(curl -s -X POST http://localhost:8000/auth/login-child-pin \
 echo $CHILD_TOKEN
 ```
 
-### 5.4 Parler à l'agent tuteur scolaire
+### 6.4 Parler à l'agent tuteur scolaire
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat \
@@ -147,7 +246,7 @@ curl -X POST http://localhost:8000/agents/chat \
   -d '{"role_id":"kids_tutor","message":"Bonjour, je veux apprendre les dinosaures","voice":true}'
 ```
 
-### 5.5 Parler à l'agent emploi du temps
+### 6.5 Parler à l'agent emploi du temps
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat \
@@ -156,7 +255,7 @@ curl -X POST http://localhost:8000/agents/chat \
   -d '{"role_id":"mother_schedule","message":"Ajoute un rendez-vous chez le médecin pour Léa demain à 14h","voice":false}'
 ```
 
-### 5.6 Vérifier la stack vocale
+### 6.6 Vérifier la stack vocale
 
 ```bash
 curl http://localhost:8000/health/voice
@@ -175,9 +274,9 @@ Réponse attendue (si Whisper/Piper installés via `scripts/setup_voice.sh`) :
 
 ---
 
-## 6. Vérifications fonctionnelles — Calendrier
+## 7. Vérifications fonctionnelles — Calendrier
 
-### 6.1 Créer un événement
+### 7.1 Créer un événement
 
 ```bash
 curl -X POST http://localhost:8000/events/ \
@@ -186,14 +285,14 @@ curl -X POST http://localhost:8000/events/ \
   -d '{"title":"Cours de piano","start_at":"2026-10-22 16:00","event_type":"activity","child_id":"'$CHILD_ID'"}'
 ```
 
-### 6.2 Lister les événements du jour
+### 7.2 Lister les événements du jour
 
 ```bash
 curl http://localhost:8000/events/today \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### 6.3 Vérifier dans l'app mobile
+### 7.3 Vérifier dans l'app mobile
 
 1. Se connecter en tant que parent.
 2. Aller dans l'onglet **📅 Calendrier**.
@@ -202,9 +301,9 @@ curl http://localhost:8000/events/today \
 
 ---
 
-## 7. Vérifications fonctionnelles — Messagerie familiale
+## 8. Vérifications fonctionnelles — Messagerie familiale
 
-### 7.1 Lier un second parent à un enfant
+### 8.1 Lier un second parent à un enfant
 
 ```bash
 # Inscrire un second parent
@@ -223,7 +322,7 @@ curl -X POST "http://localhost:8000/children/$CHILD_ID/link-parent" \
   -d '{"parent_email":"pere@famille.fr"}'
 ```
 
-### 7.2 Envoyer un message via l'agent messager
+### 8.2 Envoyer un message via l'agent messager
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat \
@@ -232,7 +331,7 @@ curl -X POST http://localhost:8000/agents/chat \
   -d '{"role_id":"family_messenger","message":"Dis à Pierre que je ramène Léa à 18h","voice":false}'
 ```
 
-### 7.3 Vérifier les fils de discussion
+### 8.3 Vérifier les fils de discussion
 
 ```bash
 # En tant que parent B
@@ -240,7 +339,7 @@ curl http://localhost:8000/family-messages/threads \
   -H "Authorization: Bearer $TOKEN_B"
 ```
 
-### 7.4 Vérifier dans l'app mobile
+### 8.4 Vérifier dans l'app mobile
 
 1. Se connecter avec les deux parents sur deux appareils/émulateurs.
 2. Aller dans l'onglet **✉️ Messages**.
@@ -249,7 +348,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 8. Vérifications fonctionnelles — Notifications push
+## 9. Vérifications fonctionnelles — Notifications push
 
 > Les notifications push nécessitent un vrai appareil et un projet Expo configuré.
 
@@ -265,7 +364,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 9. Vérifications fonctionnelles — Tableau de bord
+## 10. Vérifications fonctionnelles — Tableau de bord
 
 1. Se connecter en tant que parent.
 2. L'onglet **🏠 Accueil** doit s'afficher par défaut.
@@ -280,7 +379,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 10. Vérifications fonctionnelles — Voix
+## 11. Vérifications fonctionnelles — Voix
 
 1. Vérifier que la stack vocale est installée :
    ```bash
@@ -295,7 +394,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 11. Tests de non-régression
+## 12. Tests de non-régression
 
 ### Multi-parent
 
@@ -312,7 +411,7 @@ curl http://localhost:8000/family-messages/threads \
 
 ---
 
-## 12. Dépannage courant
+## 13. Dépannage courant
 
 ### `ModuleNotFoundError` lors des tests
 
@@ -357,7 +456,7 @@ ollama run gpt-oss:20b-cloud
 
 ---
 
-## 13. Résumé des commandes essentielles
+## 14. Résumé des commandes essentielles
 
 | Action | Commande |
 | --- | --- |
