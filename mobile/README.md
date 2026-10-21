@@ -26,10 +26,10 @@ Cela crée les images requises par `app.json` (`icon.png`, `splash.png`, `adapti
 
 ## Configuration
 
-Ouvrez `App.js` et remplacez `192.168.1.XX` par l'adresse IP locale de la machine qui fait tourner le backend :
+Ouvrez `src/config.js` et remplacez `192.168.1.XX` par l'adresse IP locale de la machine qui fait tourner le backend :
 
 ```js
-const API_URL = 'http://192.168.1.42:8000';
+export const API_URL = 'http://192.168.1.42:8000';
 ```
 
 ## Lancer l'application en développement
@@ -100,10 +100,23 @@ L'espace parent est divisé en 4 onglets :
 - Rôle par défaut : **Tuteur Scolaire** (`kids_tutor`).
 - Chat texte + vocal, lecture audio de la réponse.
 
+## Architecture
+
+L'application est découpée en modules sous `src/` :
+
+- `config.js` : URL du backend et constantes globales.
+- `constants.js` : niveaux scolaires, types d'événements, etc.
+- `styles/commonStyles.js` : styles partagés.
+- `utils/` : client API, helpers dates, voix, notifications push.
+- `hooks/` : logiques métier (auth, chat, enfants, événements, messages, dashboard, rôles).
+- `components/` : composants réutilisables (`Header`, `TabBar`).
+- `screens/` : écrans de l'application (`Login`, `Parent`, `Child`, `Chat`, `Dashboard`, `Calendar`, `Messages`, `Children`).
+- `App.js` : point d'entrée qui orchestre les hooks et la navigation.
+
 ## Tests de syntaxe
 
 ```bash
 cd tutorkids/mobile
 npm install
-npx eslint App.js
+npm run lint
 ```
