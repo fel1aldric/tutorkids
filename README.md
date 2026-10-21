@@ -15,46 +15,35 @@ Les agents sont définis dans des fichiers YAML, pas dans le code. On peut donc 
 | LLM local | Ollama (`gpt-oss:20b` ou `gpt-oss:20b-cloud`) |
 | Base de données | MySQL (production) / SQLite (développement) |
 | ORM / migrations | SQLAlchemy + Alembic |
-| Mobile | React Native Expo (prochaine étape) |
-| Voix | Whisper STT + Piper TTS (à intégrer) |
+| Mobile | React Native Expo |
+| Voix | Whisper STT + Piper TTS, avec fallbacks cloud et `pyttsx3` |
 
 ## Prérequis
 
 - Python **3.12 ou plus récent**.
-- [Ollama](https://ollama.com) installé et lancé.
+- [Ollama](https://ollama.com) installé et lancé avec un modèle compatible.
 - Docker + Docker Compose (optionnel, pour MySQL en production).
 
 ## Démarrage rapide (mode développement SQLite)
-
-### 1. Lancer le backend
 
 ```bash
 cd tutorkids/backend
 ./run_dev.sh
 ```
 
-Ce script :
-- crée un venv si besoin,
-- installe les dépendances,
-- lance les migrations Alembic,
-- injecte les niveaux scolaires et le programme scolaire,
-- démarre le serveur sur http://localhost:8000.
-
+Le serveur démarre sur http://localhost:8000.
 La documentation Swagger est sur http://localhost:8000/docs.
 
-### 2. Vérifier qu'Ollama a le modèle
-
-Si vous voulez utiliser `gpt-oss:20b`, vérifiez qu'il est disponible :
+## Vérifier le modèle Ollama
 
 ```bash
 ollama list
-ollama pull gpt-oss:20b
 ```
 
-Sur certaines installations Ollama, le modèle cloud porte le nom `gpt-oss:20b-cloud`. Dans ce cas, lancez le backend avec :
+Le backend utilise par défaut `gpt-oss:20b-cloud`. Si votre modèle s'appelle différemment, modifiez-le dans `.env` ou en ligne de commande :
 
 ```bash
-OLLAMA_MODEL=gpt-oss:20b-cloud ./run_dev.sh
+OLLAMA_MODEL=gpt-oss:20b ./run_dev.sh
 ```
 
 ## Architecture des agents
@@ -71,6 +60,39 @@ Le moteur (`backend/app/agents/engine/agent_runner.py`) lit ces fichiers au dém
 - intérêts,
 - style d’apprentissage.
 
+## Voix : STT et TTS
+
+Le backend supporte plusieurs fournisseurs vocaux avec une chaîne de fallback.
+
+### Reconnaissance vocale (STT)
+
+Ordre de priorité :
+1. **Whisper local** (`openai-whisper`) si installé.
+2. **OpenAI Whisper API** si `OPENAI_API_KEY` est configuré.
+3. **Fallback** : message texte indiquant que la transcription n'est pas disponible.
+
+Pour installer Whisper local (lourd, nécessite `torch`) :
+
+```bash
+source venv/bin/activate
+pip install openai-whisper
+```
+
+### Synthèse vocale (TTS)
+
+Ordre de priorité :
+1. **Piper local** si le modèle est téléchargé dans `backend/voices/`.
+2. **OpenAI TTS API** si `OPENAI_API_KEY` est configuré.
+3. **pyttsx3** (espeak) comme fallback local.
+4. **No audio** si aucun fournisseur n'est disponible.
+
+Pour télécharger une voix Piper française :
+
+```bash
+cd backend
+./download_voice.sh
+```
+
 ## Modèle de données
 
 - `parents` : comptes parents.
@@ -85,7 +107,8 @@ Le moteur (`backend/app/agents/engine/agent_runner.py`) lit ces fichiers au dém
 | --- | --- | --- |
 | GET | `/health` | Vérifier que le backend est up |
 | GET | `/agents/roles` | Lister les rôles disponibles |
-| POST | `/agents/chat` | Envoyer un message à un agent |
+| POST | `/agents/chat` | Envoyer un message texte à un agent |
+| POST | `/agents/chat-voice` | Envoyer un fichier audio, recevoir texte + audio |
 | POST | `/parents/` | Créer un parent |
 | GET | `/parents/` | Lister les parents |
 | POST | `/children/` | Créer un enfant |
@@ -102,7 +125,7 @@ curl -X POST http://localhost:8000/parents/ \
   -d '{"email":"mere@famille.fr","first_name":"Marie","last_name":"Dupont","password":"secret"}'
 ```
 
-Créer un enfant (remplacez `PARENT_ID` par l'id retourné) :
+Créer un enfant (remplacez `PARENT_ID`) :
 
 ```bash
 curl -X POST http://localhost:8000/children/ \
@@ -117,7 +140,7 @@ curl -X POST http://localhost:8000/children/ \
   }'
 ```
 
-Parler à l’agent tuteur (remplacez `CHILD_ID`) :
+Chat texte (remplacez `CHILD_ID`) :
 
 ```bash
 curl -X POST http://localhost:8000/agents/chat \
@@ -125,9 +148,37 @@ curl -X POST http://localhost:8000/agents/chat \
   -d '{
     "role_id": "kids_tutor",
     "message": "Bonjour, je veux apprendre les dinosaures",
-    "child_id": "CHILD_ID"
+    "child_id": "CHILD_ID",
+    "voice": true
   }'
 ```
+
+Chat vocal (remplacez `CHILD_ID` et `recording.wav`) :
+
+```bash
+curl -X POST http://localhost:8000/agents/chat-voice \
+  -F "role_id=kids_tutor" \
+  -F "child_id=CHILD_ID" \
+  -F "voice=true" \
+  -F "audio_file=@recording.wav"
+```
+
+## Application mobile
+
+L'application React Native Expo se trouve dans `mobile/`. Elle permet :
+- de choisir un agent,
+- de saisir l'ID d'un enfant,
+- d'envoyer des messages texte,
+- d'enregistrer un message vocal,
+- de lire la réponse audio de l'agent.
+
+```bash
+cd tutorkids/mobile
+npm install
+npx expo start
+```
+
+Pensez à remplacer `192.168.1.XX` par l'IP locale du backend dans `App.js`.
 
 ## Production avec MySQL
 
@@ -137,7 +188,7 @@ curl -X POST http://localhost:8000/agents/chat \
 DATABASE_URL=mysql+pymysql://tutorkids:tutorkids_password@localhost:3306/tutorkids
 ```
 
-2. Lancez MySQL, par exemple avec Docker :
+2. Lancez MySQL avec Docker :
 
 ```bash
 cd tutorkids
@@ -155,8 +206,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## Prochaines étapes
 
-1. Intégrer Whisper pour la reconnaissance vocale.
-2. Intégrer Piper TTS pour la synthèse vocale.
-3. Créer l’application mobile React Native Expo.
-4. Ajouter l’authentification JWT pour parents et enfants.
-5. Créer un endpoint pour gérer l’emploi du temps (events / reminders).
+1. Authentification JWT pour parents et enfants.
+2. Gestion de l’emploi du temps : events, reminders, calendrier.
+3. Stockage cloud des fichiers audio (S3 / MinIO).
+4. Installation optimisée de Whisper et Piper en local.

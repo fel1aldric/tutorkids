@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,9 +7,13 @@ import {
   Button,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 
-const API_URL = 'http://192.168.1.XX:8000'; // change with your backend IP
+const API_URL = 'http://192.168.1.XX:8000'; // TODO: replace with your backend IP
 
 export default function App() {
   const [roles, setRoles] = useState([]);
@@ -18,27 +22,127 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingUri, setRecordingUri] = useState(null);
+  const recordingRef = useRef(null);
+  const [sound, setSound] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/agents/roles`)
-      .then((res) => res.json())
-      .then((data) => {
-        setRoles(data.roles);
-        if (data.roles.length > 0) {
-          setSelectedRole(data.roles[0].id);
-        }
-      })
-      .catch((err) => console.error(err));
+    Audio.requestPermissionsAsync().catch(() => {});
+    fetchRoles();
   }, []);
 
-  const sendMessage = async () => {
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch(`${API_URL}/agents/roles`);
+      const data = await res.json();
+      setRoles(data.roles);
+      if (data.roles.length > 0) {
+        setSelectedRole(data.roles[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load roles:', err);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recordingRef.current = recording;
+      setRecording(true);
+    } catch (err) {
+      console.error('Failed to start recording:', err);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+    setRecording(false);
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      setRecordingUri(uri);
+      recordingRef.current = null;
+      await sendVoiceMessage(uri);
+    } catch (err) {
+      console.error('Failed to stop recording:', err);
+    }
+  };
+
+  const playAudio = async (audioUrl) => {
+    try {
+      if (sound) {
+        await sound.unloadAsync();
+      }
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: `${API_URL}${audioUrl}` },
+        { shouldPlay: true }
+      );
+      setSound(newSound);
+    } catch (err) {
+      console.error('Failed to play audio:', err);
+    }
+  };
+
+  const sendVoiceMessage = async (uri) => {
+    if (!uri) return;
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append('role_id', selectedRole);
+    if (childId) formData.append('child_id', childId);
+    formData.append('voice', 'true');
+
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    const filename = uri.split('/').pop();
+
+    formData.append('audio_file', {
+      uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+      name: filename || 'recording.m4a',
+      type: 'audio/m4a',
+    });
+
+    try {
+      const res = await fetch(`${API_URL}/agents/chat-voice`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      setHistory((prev) => [
+        ...prev,
+        { role: 'user', text: '[message vocal]' },
+        { role: 'agent', text: data.response_text, audioUrl: data.response_audio_url },
+      ]);
+      if (data.response_audio_url) {
+        await playAudio(data.response_audio_url);
+      }
+    } catch (err) {
+      console.error('Voice chat failed:', err);
+    } finally {
+      setLoading(false);
+      setRecordingUri(null);
+    }
+  };
+
+  const sendTextMessage = async () => {
     if (!message.trim()) return;
     setLoading(true);
+
     const body = {
       role_id: selectedRole,
       message: message.trim(),
       child_id: childId.trim() || undefined,
+      voice: true,
     };
+
     try {
       const res = await fetch(`${API_URL}/agents/chat`, {
         method: 'POST',
@@ -49,11 +153,14 @@ export default function App() {
       setHistory((prev) => [
         ...prev,
         { role: 'user', text: message },
-        { role: 'agent', text: data.response_text },
+        { role: 'agent', text: data.response_text, audioUrl: data.response_audio_url },
       ]);
+      if (data.response_audio_url) {
+        await playAudio(data.response_audio_url);
+      }
       setMessage('');
     } catch (err) {
-      console.error(err);
+      console.error('Text chat failed:', err);
     } finally {
       setLoading(false);
     }
@@ -89,6 +196,12 @@ export default function App() {
             <Text style={item.role === 'user' ? styles.userText : styles.agentText}>
               {item.role === 'user' ? 'Moi' : 'Agent'} : {item.text}
             </Text>
+            {item.audioUrl && (
+              <Button
+                title="🔊 Écouter"
+                onPress={() => playAudio(item.audioUrl)}
+              />
+            )}
           </View>
         ))}
       </ScrollView>
@@ -103,7 +216,18 @@ export default function App() {
       {loading ? (
         <ActivityIndicator size="large" color="#2e7d32" />
       ) : (
-        <Button title="Envoyer" onPress={sendMessage} />
+        <View style={styles.row}>
+          <View style={styles.button}>
+            <Button title="Envoyer" onPress={sendTextMessage} />
+          </View>
+          <TouchableOpacity
+            style={[styles.micButton, recording && styles.micButtonActive]}
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+          >
+            <Text style={styles.micText}>{recording ? '🔴' : '🎙️'}</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -153,5 +277,28 @@ const styles = StyleSheet.create({
   },
   agentText: {
     color: '#2e7d32',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    marginRight: 10,
+  },
+  micButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: '#ef5350',
+  },
+  micText: {
+    fontSize: 28,
   },
 });

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./tutorkids_dev.db"
 
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "gpt-oss:20b"
+    ollama_model: str = "gpt-oss:20b-cloud"
 
     tts_provider: str = "piper"
     tts_voice: str = "fr_FR-siwis-medium"
