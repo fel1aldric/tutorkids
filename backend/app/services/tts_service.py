@@ -10,9 +10,15 @@ No paid API is used.
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Any
 
 from app.config import get_settings
+
+
+PIPER_INSTALL_HELP = (
+    "Piper n'est pas installé ou la voix est manquante. "
+    "Lancez le setup vocal : ./scripts/setup_voice.sh"
+)
 
 
 class TTSService:
@@ -21,31 +27,63 @@ class TTSService:
         self.audio_dir = Path("./audio_outputs")
         self.audio_dir.mkdir(exist_ok=True)
         self._piper = None
+        self._piper_error: Optional[str] = None
         self._load_piper()
 
     def _load_piper(self):
+        voice_name = self.settings.tts_voice
+        model_path = Path(f"{voice_name}.onnx")
+        config_path = Path(f"{voice_name}.onnx.json")
+
+        if not model_path.exists():
+            model_path = Path("voices") / f"{voice_name}.onnx"
+            config_path = Path("voices") / f"{voice_name}.onnx.json"
+
         try:
             from piper import PiperVoice
+        except ImportError:
+            self._piper_error = PIPER_INSTALL_HELP
+            print(f"[TTS] {self._piper_error}")
+            return
 
-            voice_name = self.settings.tts_voice
-            model_path = Path(f"{voice_name}.onnx")
-            config_path = Path(f"{voice_name}.onnx.json")
+        if not model_path.exists():
+            self._piper_error = f"Voix Piper introuvable : {voice_name}.onnx. {PIPER_INSTALL_HELP}"
+            print(f"[TTS] {self._piper_error}")
+            return
 
-            if not model_path.exists():
-                model_path = Path("voices") / f"{voice_name}.onnx"
-                config_path = Path("voices") / f"{voice_name}.onnx.json"
-
-            if not model_path.exists():
-                print(f"[TTS] Piper model not found: {voice_name}.onnx")
-                return
-
+        try:
             self._piper = PiperVoice.load(
                 str(model_path),
                 config_path=str(config_path) if config_path.exists() else None,
             )
         except Exception as exc:
-            print(f"[TTS] Piper not available: {exc}")
+            self._piper_error = f"Piper indisponible : {exc}"
+            print(f"[TTS] {self._piper_error}")
             self._piper = None
+
+    def is_piper_available(self) -> bool:
+        return self._piper is not None
+
+    def status(self) -> Dict[str, Any]:
+        piper_ok = self.is_piper_available()
+        active_provider = "piper" if piper_ok else ("pyttsx3" if self._pyttsx3_available() else "none")
+        return {
+            "available": piper_ok or self._pyttsx3_available(),
+            "provider": active_provider,
+            "voice": self.settings.tts_voice,
+            "message": (
+                "Prêt" if piper_ok else (self._piper_error or PIPER_INSTALL_HELP)
+            ),
+        }
+
+    def _pyttsx3_available(self) -> bool:
+        try:
+            import pyttsx3
+
+            pyttsx3.init()
+            return True
+        except Exception:
+            return False
 
     def _synthesize_with_pyttsx3(self, text: str, output_path: Path) -> bool:
         try:

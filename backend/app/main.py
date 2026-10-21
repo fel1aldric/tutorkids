@@ -8,6 +8,8 @@ from pathlib import Path
 from app.database import engine, Base
 from app.routers import agents, auth, children, events, parents
 from app.services.audio_cleanup import cleanup_audio_outputs, start_audio_cleanup_task
+from app.services.stt_service import get_stt_service
+from app.services.tts_service import get_tts_service
 
 # Create all tables at startup for dev convenience.
 # Use Alembic for real migrations in production.
@@ -59,3 +61,15 @@ app.mount("/audio", StaticFiles(directory="audio_outputs"), name="audio")
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/health/voice")
+def voice_health_check():
+    stt = get_stt_service()
+    tts = get_tts_service()
+    return {
+        "stt": stt.status(),
+        "tts": tts.status(),
+        "local_only": True,
+        "cloud": False,
+    }

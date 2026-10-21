@@ -62,12 +62,38 @@ Le moteur (`backend/app/agents/engine/agent_runner.py`) lit ces fichiers au dém
 
 ## Voix : STT et TTS (tout gratuit, local)
 
-Le backend n'utilise **aucune API payante**. Tout ce qui n'est pas exécuté localement renvoie un message d'aide.
+Le backend n'utilise **aucune API payante** et **aucun stockage cloud** pour la voix. Tout ce qui n'est pas exécuté localement renvoie un message d'aide clair.
+
+### Installation automatique de la stack vocale
+
+Un seul script installe Whisper (STT), Piper (TTS) et la voix française par défaut :
+
+```bash
+cd backend
+./scripts/setup_voice.sh
+```
+
+Vérifiez ensuite l'état de la stack vocale :
+
+```bash
+curl http://localhost:8000/health/voice
+```
+
+La réponse indique si Whisper et Piper sont prêts, quel moteur est utilisé, et si un fallback local est disponible. Exemple :
+
+```json
+{
+  "stt": { "available": true, "provider": "whisper_local", "model": "base" },
+  "tts": { "available": true, "provider": "piper", "voice": "fr_FR-siwis-medium" },
+  "local_only": true,
+  "cloud": false
+}
+```
 
 ### Reconnaissance vocale (STT)
 
 - **Whisper local** (`openai-whisper`) si installé.
-- Sinon, message indiquant comment installer Whisper gratuitement.
+- Sinon, message indiquant comment lancer `./scripts/setup_voice.sh`.
 
 ```bash
 source venv/bin/activate
@@ -81,7 +107,7 @@ Ordre de priorité :
 2. **pyttsx3** (espeak) comme fallback gratuit local.
 3. Sinon, pas d'audio.
 
-Les fichiers audio générés sont stockés **uniquement en local** dans `backend/audio_outputs/`. Ils sont servis temporairement par le backend (`/audio/<uuid>.wav`) et nettoyés automatiquement après **24h** par défaut. Aucun fichier n'est envoyé vers un service cloud.
+Les fichiers audio générés sont stockés **uniquement en local** dans `backend/audio_outputs/`. Ils sont servis temporairement par le backend (`/audio/<uuid>.wav`) et nettoyés automatiquement après **24h** par défaut.
 
 Pour configurer la durée de rétention, utilisez la variable d'environnement :
 
@@ -90,15 +116,6 @@ TTS_RETENTION_HOURS=24
 ```
 
 Mettez `0` pour désactiver le nettoyage automatique (non recommandé en production).
-
-Pour télécharger une voix Piper française gratuite :
-
-```bash
-cd backend
-./download_voice.sh
-source venv/bin/activate
-pip install piper-tts
-```
 
 ## Modèle de données
 
@@ -266,5 +283,5 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 2. ✅ Sécurité enfant : login par PIN (email parent + ID + PIN).
 3. ✅ Écran calendrier / emploi du temps dans l'application mobile.
 4. ✅ Nettoyage automatique local des fichiers audio TTS (24h par défaut, pas de cloud).
-5. Installation optimisée de Whisper et Piper en local.
+5. ✅ Installation optimisée de Whisper et Piper en local (`scripts/setup_voice.sh` + endpoint `/health/voice`).
 6. Calendrier visuel par jour / semaine dans l'application mobile.

@@ -5,9 +5,14 @@ No OpenAI API key is used.
 """
 
 import warnings
-from typing import Optional
+from typing import Dict, Optional, Any
 
 from app.config import get_settings
+
+
+WHISPER_INSTALL_HELP = (
+    "Whisper n'est pas installé. Lancez le setup vocal : ./scripts/setup_voice.sh"
+)
 
 
 class STTService:
@@ -15,6 +20,7 @@ class STTService:
         self.settings = get_settings()
         self._whisper_model = None
         self._model_name = "base"
+        self._load_error: Optional[str] = None
         self._load_model()
 
     def _load_model(self):
@@ -23,16 +29,30 @@ class STTService:
 
             warnings.filterwarnings("ignore", category=UserWarning)
             self._whisper_model = whisper.load_model(self._model_name)
+        except ImportError:
+            self._load_error = WHISPER_INSTALL_HELP
+            print(f"[STT] {self._load_error}")
         except Exception as exc:
-            print(f"[STT] Local Whisper not available: {exc}")
+            self._load_error = f"Whisper indisponible : {exc}"
+            print(f"[STT] {self._load_error}")
             self._whisper_model = None
+
+    def is_available(self) -> bool:
+        return self._whisper_model is not None
+
+    def status(self) -> Dict[str, Any]:
+        return {
+            "available": self.is_available(),
+            "provider": "whisper_local",
+            "model": self._model_name,
+            "message": (
+                "Prêt" if self.is_available() else (self._load_error or WHISPER_INSTALL_HELP)
+            ),
+        }
 
     def transcribe(self, audio_path: str) -> str:
         if self._whisper_model is None:
-            return (
-                "[Transcription locale non disponible. "
-                "Installez Whisper gratuitement avec : pip install openai-whisper]"
-            )
+            return f"[{self._load_error or WHISPER_INSTALL_HELP}]"
 
         try:
             result = self._whisper_model.transcribe(audio_path, language="fr")
