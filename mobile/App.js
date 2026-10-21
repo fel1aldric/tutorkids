@@ -44,8 +44,11 @@ export default function App() {
   const recordingRef = useRef(null);
   const [sound, setSound] = useState(null);
 
-  // Parent tabs: chat | children | calendar
-  const [parentTab, setParentTab] = useState('chat');
+  // Parent tabs: home | chat | calendar | messages | children
+  const [parentTab, setParentTab] = useState('home');
+
+  // Dashboard
+  const [dashboard, setDashboard] = useState(null);
 
   // Children management
   const [children, setChildren] = useState([]);
@@ -479,6 +482,14 @@ export default function App() {
     if (Array.isArray(data)) setEvents(data);
   };
 
+  // --- Parent: Dashboard ---
+  const fetchDashboard = async () => {
+    const data = await api('/parents/dashboard');
+    if (data && data.date) {
+      setDashboard(data);
+    }
+  };
+
   // --- Parent: Family Messages ---
   const fetchMessageThreads = async () => {
     const data = await api('/family-messages/threads');
@@ -626,6 +637,12 @@ export default function App() {
 
   const renderParentTabs = () => (
     <View style={styles.tabBar}>
+      <TouchableOpacity
+        style={[styles.tab, parentTab === 'home' && styles.tabActive]}
+        onPress={() => { setParentTab('home'); fetchDashboard(); }}
+      >
+        <Text style={parentTab === 'home' ? styles.tabTextActive : styles.tabText}>🏠 Accueil</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, parentTab === 'chat' && styles.tabActive]}
         onPress={() => setParentTab('chat')}
@@ -1126,7 +1143,136 @@ export default function App() {
     );
   };
 
+  const renderDashboardScreen = () => {
+    if (!dashboard) {
+      fetchDashboard();
+    }
+
+    const formatDashDate = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      });
+    };
+
+    const formatDashTime = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tableau de bord</Text>
+          <Button title="Déconnexion" onPress={logout} />
+        </View>
+        {renderParentTabs()}
+
+        <ScrollView style={styles.dashboardBody}>
+          {!dashboard ? (
+            <ActivityIndicator size="large" color="#2e7d32" style={{ marginTop: 40 }} />
+          ) : (
+            <>
+              <Text style={styles.dashboardDate}>{formatDashDate(dashboard.date)}</Text>
+
+              {dashboard.recommended_actions.length > 0 && (
+                <View style={styles.dashboardSection}>
+                  <Text style={styles.dashboardSectionTitle}>🔔 Actions recommandées</Text>
+                  {dashboard.recommended_actions.map((action, idx) => (
+                    <View key={idx} style={styles.dashboardAction}>
+                      <Text style={styles.dashboardActionText}>• {action}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.dashboardSection}>
+                <Text style={styles.dashboardSectionTitle}>📅 Aujourd'hui</Text>
+                {dashboard.today_events.length === 0 ? (
+                  <Text style={styles.empty}>Aucun événement aujourd'hui.</Text>
+                ) : (
+                  dashboard.today_events.map((evt) => (
+                    <View key={evt.id} style={styles.dashboardEvent}>
+                      <Text style={styles.dashboardEventTime}>{formatDashTime(evt.start_at)}</Text>
+                      <View style={styles.dashboardEventBody}>
+                        <Text style={styles.dashboardEventTitle}>{evt.title}</Text>
+                        <Text style={styles.dashboardEventMeta}>
+                          {eventTypeLabel(evt.event_type)}
+                          {evt.child_name ? ` • ${evt.child_name}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {dashboard.upcoming_homework.length > 0 && (
+                <View style={styles.dashboardSection}>
+                  <Text style={styles.dashboardSectionTitle}>📝 Devoirs à venir</Text>
+                  {dashboard.upcoming_homework.map((hw) => (
+                    <View key={hw.id} style={styles.dashboardEvent}>
+                      <Text style={styles.dashboardEventTime}>{formatDashDate(hw.start_at)}</Text>
+                      <View style={styles.dashboardEventBody}>
+                        <Text style={styles.dashboardEventTitle}>{hw.title}</Text>
+                        {hw.child_name && <Text style={styles.dashboardEventMeta}>{hw.child_name}</Text>}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {dashboard.recent_messages.length > 0 && (
+                <View style={styles.dashboardSection}>
+                  <Text style={styles.dashboardSectionTitle}>✉️ Messages récents</Text>
+                  {dashboard.recent_messages.map((msg) => (
+                    <TouchableOpacity
+                      key={msg.id}
+                      style={styles.dashboardMessage}
+                      onPress={() => {
+                        setParentTab('messages');
+                        if (msg.child_id) setSelectedMessageChildId(msg.child_id);
+                      }}
+                    >
+                      <Text style={styles.dashboardMessageSender}>{msg.sender_name}</Text>
+                      <Text style={styles.dashboardMessageContent} numberOfLines={2}>
+                        {msg.content}
+                      </Text>
+                      {msg.child_name && (
+                        <Text style={styles.dashboardMessageMeta}>Concernant {msg.child_name}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.dashboardSection}>
+                <Text style={styles.dashboardSectionTitle}>👶 Enfants</Text>
+                <View style={styles.dashboardChildrenRow}>
+                  {dashboard.children.length === 0 ? (
+                    <Text style={styles.empty}>Aucun enfant enregistré.</Text>
+                  ) : (
+                    dashboard.children.map((c) => (
+                      <View key={c.id} style={styles.dashboardChildChip}>
+                        <Text style={styles.dashboardChildChipText}>{c.first_name}</Text>
+                        <Text style={styles.dashboardChildChipLevel}>{c.school_level_code}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderParentScreen = () => {
+    if (parentTab === 'home') return renderDashboardScreen();
     if (parentTab === 'calendar') return renderCalendarScreen();
     if (parentTab === 'messages') return renderMessagesScreen();
     if (parentTab === 'children') return renderChildrenScreen();
@@ -1682,5 +1828,108 @@ const styles = StyleSheet.create({
   recipientChipTextActive: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  dashboardBody: {
+    flex: 1,
+  },
+  dashboardDate: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    marginVertical: 12,
+    textAlign: 'center',
+  },
+  dashboardSection: {
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  dashboardSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  dashboardAction: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: '#fb8c00',
+  },
+  dashboardActionText: {
+    color: '#333',
+  },
+  dashboardEvent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 4,
+  },
+  dashboardEventTime: {
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    minWidth: 50,
+    marginRight: 10,
+  },
+  dashboardEventBody: {
+    flex: 1,
+  },
+  dashboardEventTitle: {
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  dashboardEventMeta: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  dashboardMessage: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1565c0',
+  },
+  dashboardMessageSender: {
+    fontWeight: 'bold',
+    color: '#1565c0',
+    marginBottom: 2,
+  },
+  dashboardMessageContent: {
+    color: '#333',
+  },
+  dashboardMessageMeta: {
+    color: '#777',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  dashboardChildrenRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  dashboardChildChip: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dashboardChildChipText: {
+    fontWeight: 'bold',
+    color: '#2e7d32',
+  },
+  dashboardChildChipLevel: {
+    fontSize: 11,
+    color: '#555',
+    marginTop: 2,
   },
 });

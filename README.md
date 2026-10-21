@@ -141,13 +141,14 @@ Mettez `0` pour désactiver le nettoyage automatique (non recommandé en product
 | POST | `/agents/chat-voice` | Oui | Envoyer un fichier audio, recevoir texte + audio |
 | GET | `/parents/me` | Parent | Profil du parent connecté |
 | GET | `/parents/` | Parent | Lister les parents |
+| GET | `/parents/dashboard` | Parent | Tableau de bord du jour (événements, devoirs, messages, actions) |
+| POST | `/parents/push-token` | Parent | Enregistrer son token Expo pour les notifications push |
 | POST | `/children/` | Parent | Créer un enfant (assigné au parent connecté) |
 | GET | `/children/` | Parent | Lister ses enfants |
 | GET | `/children/{id}` | Parent | Voir un de ses enfants |
 | PUT | `/children/{id}` | Parent | Modifier un de ses enfants |
 | DELETE | `/children/{id}` | Parent | Supprimer un de ses enfants |
 | POST | `/children/{id}/link-parent` | Parent | Lier un autre parent à un enfant (garde alternée) |
-| POST | `/parents/push-token` | Parent | Enregistrer son token Expo pour les notifications push |
 | POST | `/events/` | Parent | Créer un événement / devoir / activité |
 | GET | `/events/` | Parent | Lister les événements (filtres optionnels) |
 | GET | `/events/today` | Parent | Événements du jour |
@@ -278,7 +279,7 @@ Les données des messages restent stockées localement dans le backend ; seul le
 ## Application mobile
 
 L'application React Native Expo se trouve dans `mobile/`. Elle permet :
-- **Parent** : connexion, gestion des enfants, **calendrier familial visuel** (vue jour et vue semaine), **messagerie familiale** avec l'autre parent (fil de discussion par enfant), discussion avec l'agent emploi du temps, le tuteur scolaire ou l'agent messager.
+- **Parent** : **tableau de bord** d'accueil avec la journée, les devoirs, les messages et les actions recommandées, gestion des enfants, **calendrier familial visuel** (vue jour et vue semaine), **messagerie familiale** avec l'autre parent (fil de discussion par enfant), discussion avec l'agent emploi du temps, le tuteur scolaire ou l'agent messager.
 - **Enfant** : connexion avec email parent + ID + PIN, discussion avec le tuteur scolaire.
 - Chat texte + vocal, lecture audio de la réponse de l'agent.
 
@@ -292,6 +293,18 @@ Dans l'onglet **Calendrier**, le parent peut :
 - Supprimer un événement.
 
 Les événements sont récupérés depuis le backend local, sans cloud.
+
+### Tableau de bord
+
+L'onglet **Accueil** affiche une synthèse quotidienne pour le parent connecté :
+- La date du jour.
+- Les **actions recommandées** (rappels, devoirs, nouveaux messages).
+- Les **événements d'aujourd'hui** avec heure et enfant concerné.
+- Les **devoirs à venir** dans les 7 prochains jours.
+- Les **messages familiaux récents** reçus en moins de 24h.
+- La liste des **enfants** et de leur niveau scolaire.
+
+Toutes les données viennent de l'endpoint `GET /parents/dashboard`.
 
 ### Démarrer l'application mobile
 
