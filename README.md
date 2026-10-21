@@ -241,9 +241,22 @@ curl -X POST http://localhost:8000/agents/chat \
 ## Application mobile
 
 L'application React Native Expo se trouve dans `mobile/`. Elle permet :
-- **Parent** : connexion, gestion des enfants, calendrier familial, discussion avec l'agent emploi du temps ou le tuteur scolaire.
+- **Parent** : connexion, gestion des enfants, **calendrier familial visuel** (vue jour et vue semaine), discussion avec l'agent emploi du temps ou le tuteur scolaire.
 - **Enfant** : connexion avec email parent + ID + PIN, discussion avec le tuteur scolaire.
 - Chat texte + vocal, lecture audio de la réponse de l'agent.
+
+### Calendrier visuel
+
+Dans l'onglet **Calendrier**, le parent peut :
+- Basculer entre la **vue Jour** et la **vue Semaine**.
+- Naviguer dans le temps avec les flèches.
+- Voir les événements colorés par type (activité, devoir, rendez-vous, rappel).
+- Ajouter un événement avec date, heure, type et enfant concerné (facilement sélectionnable).
+- Supprimer un événement.
+
+Les événements sont récupérés depuis le backend local, sans cloud.
+
+### Démarrer l'application mobile
 
 ```bash
 cd tutorkids/mobile
@@ -284,4 +297,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 3. ✅ Écran calendrier / emploi du temps dans l'application mobile.
 4. ✅ Nettoyage automatique local des fichiers audio TTS (24h par défaut, pas de cloud).
 5. ✅ Installation optimisée de Whisper et Piper en local (`scripts/setup_voice.sh` + endpoint `/health/voice`).
-6. Calendrier visuel par jour / semaine dans l'application mobile.
+6. ✅ Calendrier visuel par jour / semaine dans l'application mobile.

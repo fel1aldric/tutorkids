@@ -26,6 +26,10 @@ Thumbs.db
 # Logs
 *.log
 
+# Mobile / Node
+mobile/node_modules/
+mobile/package-lock.json
+
 # Alembic cache (keep migration scripts)
 alembic/__pycache__/
 alembic/versions/__pycache__/
