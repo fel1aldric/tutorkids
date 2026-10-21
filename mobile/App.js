@@ -12,7 +12,6 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -385,12 +384,6 @@ export default function App() {
   // --- Date helpers ---
   const pad2 = (n) => String(n).padStart(2, '0');
 
-  const formatDateApi = (date) =>
-    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-
-  const formatDateTimeApi = (date, time = '00:00') =>
-    `${formatDateApi(date)} ${time}`;
-
   const parseApiDate = (str) => {
     if (!str) return null;
     const [y, m, d] = str.split('T')[0].split('-').map(Number);
@@ -448,7 +441,6 @@ export default function App() {
   };
 
   const renderEventCard = (evt) => {
-    const startDate = parseApiDate(evt.start_at);
     const endDate = parseApiDate(evt.end_at);
     const color = eventTypeColor(evt.event_type);
     const childName = evt.child?.first_name ||

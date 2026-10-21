@@ -5,7 +5,7 @@ Application mobile React Native (Expo) pour interagir avec les agents IA TutorKi
 ## Prérequis
 
 - Node.js 18+
-- Expo CLI : `npm install -g expo-cli`
+- EAS CLI (optionnel, pour les builds cloud) : `npm install -g eas-cli`
 - Le backend doit tourner sur le réseau local.
 
 ## Installation
@@ -15,6 +15,15 @@ cd tutorkids/mobile
 npm install
 ```
 
+## Générer les assets
+
+```bash
+cd tutorkids/mobile
+python3 scripts/generate-assets.py
+```
+
+Cela crée les images requises par `app.json` (`icon.png`, `splash.png`, `adaptive-icon.png`, `favicon.png`, `notification-icon.png`). Remplacez-les ensuite par de vrais assets graphiques avant publication.
+
 ## Configuration
 
 Ouvrez `App.js` et remplacez `192.168.1.XX` par l'adresse IP locale de la machine qui fait tourner le backend :
@@ -23,7 +32,7 @@ Ouvrez `App.js` et remplacez `192.168.1.XX` par l'adresse IP locale de la machin
 const API_URL = 'http://192.168.1.42:8000';
 ```
 
-## Lancer l'application
+## Lancer l'application en développement
 
 ```bash
 npx expo start
@@ -31,32 +40,59 @@ npx expo start
 
 Puis scannez le QR code avec l'application **Expo Go** sur votre téléphone.
 
+## Build Android avec EAS / Codemagic
+
+1. Créer le projet EAS :
+
+   ```bash
+   cd tutorkids/mobile
+   eas login
+   eas init
+   ```
+
+2. Générer le keystore localement :
+
+   ```bash
+   ./scripts/generate-keystore.sh
+   ```
+
+3. Uploader le keystore et les variables d'environnement dans Codemagic (voir `TESTING.md` section 4).
+
+4. Lancer un build :
+   - **APK interne** : workflow `android-apk-preview` dans Codemagic.
+   - **AAB Play Store** : workflow `android-aab-production` dans Codemagic.
+
 ## Fonctionnalités
 
 ### Connexion
 
 - **Parent** : inscription / connexion avec email + mot de passe.
-- **Enfant** : connexion avec son ID (UUID, temporaire ; un code PIN viendra plus tard).
+- **Enfant** : connexion avec email parent + ID enfant + **code PIN**.
 
 ### Espace Parent
 
-L'espace parent est divisé en 3 onglets :
+L'espace parent est divisé en 4 onglets :
 
-1. **💬 Agents**
-   - Rôle par défaut : **Assistant Emploi du Temps** (`mother_schedule`).
-   - Peut aussi discuter avec le **Tuteur Scolaire** (`kids_tutor`) au nom du premier enfant.
+1. **🏠 Accueil (Dashboard)**
+   - Date du jour.
+   - Actions recommandées, événements du jour, devoirs à venir, messages récents.
+   - Liste des enfants liés au parent.
+
+2. **💬 Agents**
+   - Discuter avec l'**Assistant Emploi du Temps** (`mother_schedule`).
+   - Discuter avec le **Tuteur Scolaire** (`kids_tutor`) au nom d'un enfant.
+   - Envoyer des messages à l'**Agent Messager Familial** (`family_messenger`).
    - Chat texte + bouton micro pour envoyer un message vocal.
-   - Lecture de la réponse audio de l'agent.
+   - Lecture audio de la réponse de l'agent.
 
-2. **📅 Calendrier familial**
-   - Liste des événements / devoirs / rendez-vous / rappels.
-   - Création d'un événement avec titre, type, date/heure, description, enfant concerné.
-   - Suppression d'un événement.
+3. **📅 Calendrier**
+   - Vue jour et vue semaine.
+   - Création d'événements (activité, devoir, rendez-vous, rappel).
+   - Couleurs par type d'événement.
 
-3. **👶 Mes enfants**
-   - Liste des profils enfants.
-   - Ajout d'un enfant avec prénom, date de naissance, niveau scolaire (boutons visuels) et intérêts.
-   - Modification / suppression d'un enfant.
+4. **✉️ Messages**
+   - Fil de discussion familial par enfant.
+   - Messages historiques avec nom de l'expéditeur et de l'enfant.
 
 ### Espace Enfant
 
@@ -64,8 +100,10 @@ L'espace parent est divisé en 3 onglets :
 - Rôle par défaut : **Tuteur Scolaire** (`kids_tutor`).
 - Chat texte + vocal, lecture audio de la réponse.
 
-## Prochaines étapes
+## Tests de syntaxe
 
-- Afficher un calendrier visuel par jour / semaine.
-- Notifications locales pour les rappels et devoirs.
-- Installer Whisper et Piper localement pour une STT/TTS 100% offline.
+```bash
+cd tutorkids/mobile
+npm install
+npx eslint App.js
+```
