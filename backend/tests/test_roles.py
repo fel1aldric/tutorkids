@@ -1,4 +1,11 @@
 from app.agents.engine.agent_runner import AgentRunner
+from app.database import engine, Base
+from seed_data import seed
+
+
+def setup_module():
+    Base.metadata.create_all(bind=engine)
+    seed()
 
 
 def test_roles_loaded():
@@ -12,10 +19,8 @@ def test_roles_loaded():
 def test_child_context():
     from app.database import SessionLocal
     from app.models.child import Child
-    from app.models.school_level import SchoolLevel
 
     db = SessionLocal()
-    level = db.query(SchoolLevel).filter(SchoolLevel.code == "cp").first()
     child = Child(
         first_name="Test",
         birth_date=None,

@@ -16,14 +16,24 @@ import * as FileSystem from 'expo-file-system';
 const API_URL = 'http://192.168.1.XX:8000'; // TODO: replace with your backend IP
 
 export default function App() {
+  const [screen, setScreen] = useState('login'); // login, parent, child
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+
+  // Auth fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [childId, setChildId] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  // Chat fields
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState('kids_tutor');
-  const [childId, setChildId] = useState('');
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [recordingUri, setRecordingUri] = useState(null);
   const recordingRef = useRef(null);
   const [sound, setSound] = useState(null);
 
@@ -45,6 +55,77 @@ export default function App() {
     }
   };
 
+  const apiPost = async (path, body, auth = true) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth && token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  };
+
+  const loginParent = async () => {
+    setLoading(true);
+    try {
+      const data = await apiPost('/auth/login-parent', { email, password }, false);
+      if (data.access_token) {
+        setToken(data.access_token);
+        setUser(data.user);
+        setScreen('parent');
+      } else {
+        alert('Login failed');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerParent = async () => {
+    setLoading(true);
+    try {
+      await apiPost('/auth/register-parent', {
+        email,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+      }, false);
+      alert('Registered! Now login.');
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginChild = async () => {
+    setLoading(true);
+    try {
+      const data = await apiPost('/auth/login-child', { child_id: childId }, false);
+      if (data.access_token) {
+        setToken(data.access_token);
+        setUser(data.user);
+        setScreen('child');
+      } else {
+        alert('Child login failed');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    setScreen('login');
+    setHistory([]);
+  };
+
   const startRecording = async () => {
     try {
       await Audio.requestPermissionsAsync();
@@ -52,7 +133,6 @@ export default function App() {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
-
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
@@ -69,7 +149,6 @@ export default function App() {
     try {
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
-      setRecordingUri(uri);
       recordingRef.current = null;
       await sendVoiceMessage(uri);
     } catch (err) {
@@ -79,9 +158,7 @@ export default function App() {
 
   const playAudio = async (audioUrl) => {
     try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
+      if (sound) await sound.unloadAsync();
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: `${API_URL}${audioUrl}` },
         { shouldPlay: true }
@@ -98,12 +175,9 @@ export default function App() {
 
     const formData = new FormData();
     formData.append('role_id', selectedRole);
-    if (childId) formData.append('child_id', childId);
     formData.append('voice', 'true');
 
-    const fileInfo = await FileSystem.getInfoAsync(uri);
     const filename = uri.split('/').pop();
-
     formData.append('audio_file', {
       uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
       name: filename || 'recording.m4a',
@@ -113,6 +187,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/agents/chat-voice`, {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
       const data = await res.json();
@@ -121,14 +196,11 @@ export default function App() {
         { role: 'user', text: '[message vocal]' },
         { role: 'agent', text: data.response_text, audioUrl: data.response_audio_url },
       ]);
-      if (data.response_audio_url) {
-        await playAudio(data.response_audio_url);
-      }
+      if (data.response_audio_url) await playAudio(data.response_audio_url);
     } catch (err) {
       console.error('Voice chat failed:', err);
     } finally {
       setLoading(false);
-      setRecordingUri(null);
     }
   };
 
@@ -139,25 +211,17 @@ export default function App() {
     const body = {
       role_id: selectedRole,
       message: message.trim(),
-      child_id: childId.trim() || undefined,
       voice: true,
     };
 
     try {
-      const res = await fetch(`${API_URL}/agents/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
+      const data = await apiPost('/agents/chat', body, true);
       setHistory((prev) => [
         ...prev,
         { role: 'user', text: message },
         { role: 'agent', text: data.response_text, audioUrl: data.response_audio_url },
       ]);
-      if (data.response_audio_url) {
-        await playAudio(data.response_audio_url);
-      }
+      if (data.response_audio_url) await playAudio(data.response_audio_url);
       setMessage('');
     } catch (err) {
       console.error('Text chat failed:', err);
@@ -166,9 +230,13 @@ export default function App() {
     }
   };
 
-  return (
+  const ChatScreen = () => (
     <View style={styles.container}>
-      <Text style={styles.title}>TutorKids AI</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>TutorKids AI</Text>
+        <Button title="Déconnexion" onPress={logout} />
+      </View>
+      <Text style={styles.label}>Connecté en tant que : {user?.first_name}</Text>
 
       <Text style={styles.label}>Agent :</Text>
       <View style={styles.roles}>
@@ -182,14 +250,6 @@ export default function App() {
         ))}
       </View>
 
-      <Text style={styles.label}>ID de l'enfant (optionnel) :</Text>
-      <TextInput
-        style={styles.input}
-        value={childId}
-        onChangeText={setChildId}
-        placeholder="UUID de l'enfant"
-      />
-
       <ScrollView style={styles.history}>
         {history.map((item, index) => (
           <View key={index} style={styles.bubble}>
@@ -197,10 +257,7 @@ export default function App() {
               {item.role === 'user' ? 'Moi' : 'Agent'} : {item.text}
             </Text>
             {item.audioUrl && (
-              <Button
-                title="🔊 Écouter"
-                onPress={() => playAudio(item.audioUrl)}
-              />
+              <Button title="🔊 Écouter" onPress={() => playAudio(item.audioUrl)} />
             )}
           </View>
         ))}
@@ -231,6 +288,30 @@ export default function App() {
       )}
     </View>
   );
+
+  if (screen === 'login') {
+    return (
+      <ScrollView contentContainerStyle={styles.centered}>
+        <Text style={styles.title}>TutorKids AI</Text>
+
+        <Text style={styles.sectionTitle}>Parent</Text>
+        <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
+        <TextInput style={styles.input} placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry />
+        <TextInput style={styles.input} placeholder="Prénom" value={firstName} onChangeText={setFirstName} />
+        <TextInput style={styles.input} placeholder="Nom" value={lastName} onChangeText={setLastName} />
+        <View style={styles.row}>
+          <Button title="Se connecter" onPress={loginParent} disabled={loading} />
+          <Button title="S'inscrire" onPress={registerParent} disabled={loading} />
+        </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Enfant</Text>
+        <TextInput style={styles.input} placeholder="ID de l'enfant" value={childId} onChangeText={setChildId} />
+        <Button title="Se connecter enfant" onPress={loginChild} disabled={loading} />
+      </ScrollView>
+    );
+  }
+
+  return <ChatScreen />;
 }
 
 const styles = StyleSheet.create({
@@ -240,11 +321,28 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     backgroundColor: '#fff',
   },
+  centered: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
   },
   label: {
     fontWeight: 'bold',
@@ -260,7 +358,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 10,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   history: {
     flex: 1,
@@ -282,10 +380,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   button: {
     flex: 1,
-    marginRight: 10,
   },
   micButton: {
     width: 60,

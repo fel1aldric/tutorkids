@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
+from app.auth import get_current_child_or_parent
 from app.schemas.agent import AgentMessageRequest, AgentMessageResponse
 from app.services.llm_service import get_agent_runner
 from app.services.tts_service import get_tts_service
@@ -15,6 +16,23 @@ import tempfile
 import os
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+def _resolve_user(user_info: dict, child_id: Optional[str], parent_id: Optional[str]):
+    """Return final child_id/parent_id based on authenticated user and explicit IDs."""
+    user_type = user_info["type"]
+    user = user_info["user"]
+
+    if user_type == "parent":
+        final_parent_id = user.id
+        # Parent can chat on behalf of one of their children if child_id is provided.
+        final_child_id = child_id
+        return final_child_id, final_parent_id
+
+    # Child user
+    final_child_id = user.id
+    final_parent_id = user.parent_id
+    return final_child_id, final_parent_id
 
 
 def _run_agent_chat(
@@ -92,13 +110,20 @@ def list_roles():
 
 
 @router.post("/chat", response_model=AgentMessageResponse)
-def chat(request: AgentMessageRequest, db: Session = Depends(get_db)):
+def chat(
+    request: AgentMessageRequest,
+    db: Session = Depends(get_db),
+    user_info: dict = Depends(get_current_child_or_parent),
+):
+    final_child_id, final_parent_id = _resolve_user(
+        user_info, request.child_id, request.parent_id
+    )
     return _run_agent_chat(
         db=db,
         role_id=request.role_id,
         message=request.message,
-        child_id=request.child_id,
-        parent_id=request.parent_id,
+        child_id=final_child_id,
+        parent_id=final_parent_id,
         voice=request.voice,
     )
 
@@ -111,7 +136,9 @@ def chat_voice(
     voice: bool = Form(True),
     audio_file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    user_info: dict = Depends(get_current_child_or_parent),
 ):
+    final_child_id, final_parent_id = _resolve_user(user_info, child_id, parent_id)
     stt = get_stt_service()
 
     suffix = os.path.splitext(audio_file.filename)[1] or ".wav"
@@ -129,8 +156,8 @@ def chat_voice(
         db=db,
         role_id=role_id,
         message=transcribed_message,
-        child_id=child_id,
-        parent_id=parent_id,
+        child_id=final_child_id,
+        parent_id=final_parent_id,
         voice=voice,
         audio_input_url=None,
     )

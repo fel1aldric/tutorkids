@@ -13,7 +13,7 @@ class ChildBase(BaseModel):
 
 
 class ChildCreate(ChildBase):
-    parent_id: str
+    parent_id: Optional[str] = None
 
 
 class ChildUpdate(BaseModel):

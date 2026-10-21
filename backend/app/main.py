@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from app.database import engine, Base
-from app.routers import agents, children, parents
+from app.routers import agents, auth, children, parents
 
 # Create all tables at startup for dev convenience.
 # Use Alembic for real migrations in production.
@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(children.router)
 app.include_router(parents.router)
