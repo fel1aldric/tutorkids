@@ -16,7 +16,7 @@ Les agents sont définis dans des fichiers YAML, pas dans le code. On peut donc 
 | Base de données | MySQL (production) / SQLite (développement) |
 | ORM / migrations | SQLAlchemy + Alembic |
 | Mobile | React Native Expo |
-| Voix | Whisper STT + Piper TTS, avec fallbacks cloud et `pyttsx3` |
+| Voix | Whisper STT + Piper TTS (gratuits, locaux), fallback `pyttsx3` |
 
 ## Prérequis
 
@@ -60,18 +60,14 @@ Le moteur (`backend/app/agents/engine/agent_runner.py`) lit ces fichiers au dém
 - intérêts,
 - style d’apprentissage.
 
-## Voix : STT et TTS
+## Voix : STT et TTS (tout gratuit, local)
 
-Le backend supporte plusieurs fournisseurs vocaux avec une chaîne de fallback.
+Le backend n'utilise **aucune API payante**. Tout ce qui n'est pas exécuté localement renvoie un message d'aide.
 
 ### Reconnaissance vocale (STT)
 
-Ordre de priorité :
-1. **Whisper local** (`openai-whisper`) si installé.
-2. **OpenAI Whisper API** si `OPENAI_API_KEY` est configuré.
-3. **Fallback** : message texte indiquant que la transcription n'est pas disponible.
-
-Pour installer Whisper local (lourd, nécessite `torch`) :
+- **Whisper local** (`openai-whisper`) si installé.
+- Sinon, message indiquant comment installer Whisper gratuitement.
 
 ```bash
 source venv/bin/activate
@@ -82,15 +78,16 @@ pip install openai-whisper
 
 Ordre de priorité :
 1. **Piper local** si le modèle est téléchargé dans `backend/voices/`.
-2. **OpenAI TTS API** si `OPENAI_API_KEY` est configuré.
-3. **pyttsx3** (espeak) comme fallback local.
-4. **No audio** si aucun fournisseur n'est disponible.
+2. **pyttsx3** (espeak) comme fallback gratuit local.
+3. Sinon, pas d'audio.
 
-Pour télécharger une voix Piper française :
+Pour télécharger une voix Piper française gratuite :
 
 ```bash
 cd backend
 ./download_voice.sh
+source venv/bin/activate
+pip install piper-tts
 ```
 
 ## Modèle de données

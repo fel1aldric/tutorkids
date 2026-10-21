@@ -1,10 +1,10 @@
 """
-Text-to-speech service.
+Text-to-speech service using free local engines.
 Priority:
-  1. Piper local (if piper-tts + voice model are installed)
-  2. OpenAI TTS API (if OPENAI_API_KEY is set)
-  3. pyttsx3 local synthesis (if installed)
-  4. No audio returned
+  1. Piper TTS local (if piper-tts + voice model are installed)
+  2. pyttsx3 local fallback (free, uses espeak)
+  3. No audio returned
+No paid API is used.
 """
 
 import os
@@ -47,21 +47,6 @@ class TTSService:
             print(f"[TTS] Piper not available: {exc}")
             self._piper = None
 
-    def _has_openai_key(self) -> bool:
-        return bool(os.getenv("OPENAI_API_KEY"))
-
-    def _synthesize_with_openai(self, text: str, output_path: Path) -> bool:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice="alloy",
-            input=text,
-        )
-        response.stream_to_file(str(output_path))
-        return True
-
     def _synthesize_with_pyttsx3(self, text: str, output_path: Path) -> bool:
         try:
             import pyttsx3
@@ -89,19 +74,11 @@ class TTSService:
             except Exception as exc:
                 print(f"[TTS] Piper synthesis failed: {exc}")
 
-        # 2. Try OpenAI TTS API
-        if self._has_openai_key():
-            try:
-                self._synthesize_with_openai(text, output_path)
-                return f"/audio/{filename}"
-            except Exception as exc:
-                print(f"[TTS] OpenAI TTS failed: {exc}")
-
-        # 3. Try pyttsx3 fallback
+        # 2. Try pyttsx3 free local fallback
         if self._synthesize_with_pyttsx3(text, output_path):
             return f"/audio/{filename}"
 
-        print("[TTS] No TTS provider available.")
+        print("[TTS] No local TTS provider available.")
         return None
 
 

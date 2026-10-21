@@ -1,12 +1,9 @@
 """
-Speech-to-text service.
-Priority:
-  1. OpenAI Whisper local (if openai-whisper + torch are installed)
-  2. OpenAI Whisper API (if OPENAI_API_KEY is set)
-  3. Fallback placeholder text
+Speech-to-text service using OpenAI Whisper locally.
+Whisper is a free, open-source model from OpenAI that runs locally.
+No OpenAI API key is used.
 """
 
-import os
 import warnings
 from typing import Optional
 
@@ -18,9 +15,9 @@ class STTService:
         self.settings = get_settings()
         self._whisper_model = None
         self._model_name = "base"
-        self._load_local_whisper()
+        self._load_model()
 
-    def _load_local_whisper(self):
+    def _load_model(self):
         try:
             import whisper
 
@@ -30,36 +27,18 @@ class STTService:
             print(f"[STT] Local Whisper not available: {exc}")
             self._whisper_model = None
 
-    def _has_openai_key(self) -> bool:
-        return bool(os.getenv("OPENAI_API_KEY"))
-
-    def _transcribe_with_openai(self, audio_path: str) -> str:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        with open(audio_path, "rb") as audio_file:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="fr",
-            )
-        return transcript.text.strip()
-
     def transcribe(self, audio_path: str) -> str:
-        if self._whisper_model is not None:
-            try:
-                result = self._whisper_model.transcribe(audio_path, language="fr")
-                return result.get("text", "").strip()
-            except Exception as exc:
-                print(f"[STT] Local Whisper failed: {exc}")
+        if self._whisper_model is None:
+            return (
+                "[Transcription locale non disponible. "
+                "Installez Whisper gratuitement avec : pip install openai-whisper]"
+            )
 
-        if self._has_openai_key():
-            try:
-                return self._transcribe_with_openai(audio_path)
-            except Exception as exc:
-                print(f"[STT] OpenAI Whisper API failed: {exc}")
-
-        return "[Transcription non disponible : Whisper local non installé et aucune clé OpenAI configurée.]"
+        try:
+            result = self._whisper_model.transcribe(audio_path, language="fr")
+            return result.get("text", "").strip()
+        except Exception as exc:
+            return f"[Erreur de transcription locale : {exc}]"
 
 
 def get_stt_service() -> STTService:

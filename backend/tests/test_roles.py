@@ -19,7 +19,7 @@ def test_child_context():
     child = Child(
         first_name="Test",
         birth_date=None,
-        school_level=level,
+        school_level_code="cp",
         language="fr",
         interests="football",
     )

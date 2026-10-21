@@ -88,8 +88,11 @@ class AgentRunner:
             )
 
         level_label = "niveau inconnu"
-        if child.school_level:
-            level_label = child.school_level.label
+        if child.school_level_code:
+            from app.models.school_level import SchoolLevel
+            level = db.query(SchoolLevel).filter(SchoolLevel.code == child.school_level_code).first()
+            if level:
+                level_label = level.label
 
         return {
             "first_name": child.first_name,
