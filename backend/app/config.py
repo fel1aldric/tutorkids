@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     stt_provider: str = "whisper"
 
+    # Audio outputs retention in hours. Files older than this are deleted locally.
+    # Set to 0 to disable cleanup, None to keep forever (not recommended).
+    tts_retention_hours: int = 24
+
 
 @lru_cache()
 def get_settings() -> Settings:

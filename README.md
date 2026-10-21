@@ -81,6 +81,16 @@ Ordre de priorité :
 2. **pyttsx3** (espeak) comme fallback gratuit local.
 3. Sinon, pas d'audio.
 
+Les fichiers audio générés sont stockés **uniquement en local** dans `backend/audio_outputs/`. Ils sont servis temporairement par le backend (`/audio/<uuid>.wav`) et nettoyés automatiquement après **24h** par défaut. Aucun fichier n'est envoyé vers un service cloud.
+
+Pour configurer la durée de rétention, utilisez la variable d'environnement :
+
+```env
+TTS_RETENTION_HOURS=24
+```
+
+Mettez `0` pour désactiver le nettoyage automatique (non recommandé en production).
+
 Pour télécharger une voix Piper française gratuite :
 
 ```bash
@@ -255,6 +265,6 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 1. ✅ Gestion de l’emploi du temps : events, reminders, calendrier pour la mère.
 2. ✅ Sécurité enfant : login par PIN (email parent + ID + PIN).
 3. ✅ Écran calendrier / emploi du temps dans l'application mobile.
-4. Stockage cloud des fichiers audio (S3 / MinIO) ou nettoyage automatique.
+4. ✅ Nettoyage automatique local des fichiers audio TTS (24h par défaut, pas de cloud).
 5. Installation optimisée de Whisper et Piper en local.
 6. Calendrier visuel par jour / semaine dans l'application mobile.
