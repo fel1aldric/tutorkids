@@ -1,22 +1,40 @@
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  RecordingPresets,
+  createAudioPlayer,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { Platform } from 'react-native';
 import { api } from './api';
 
-let currentSound = null;
+let currentPlayer = null;
 
-export const setCurrentSound = (sound) => {
-  currentSound = sound;
+const releasePlayer = () => {
+  if (!currentPlayer) return;
+  try {
+    currentPlayer.pause();
+    currentPlayer.remove();
+  } catch (_) {}
+  currentPlayer = null;
 };
+
+export const setCurrentSound = (player) => {
+  currentPlayer = player;
+};
+
+export const stopAudio = releasePlayer;
 
 export const playAudio = async (audioUrl) => {
   try {
-    if (currentSound) await currentSound.unloadAsync();
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      { uri: audioUrl },
-      { shouldPlay: true }
-    );
-    currentSound = newSound;
-    return newSound;
+    releasePlayer();
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+    });
+    const player = createAudioPlayer({ uri: audioUrl });
+    currentPlayer = player;
+    player.play();
+    return player;
   } catch (err) {
     console.error('Failed to play audio:', err);
     return null;
@@ -25,26 +43,35 @@ export const playAudio = async (audioUrl) => {
 
 export const startRecording = async () => {
   try {
-    await Audio.requestPermissionsAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+    if (!granted) {
+      console.warn('Microphone permission denied');
+      return null;
+    }
+    releasePlayer();
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
     });
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    return recording;
+    const recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    return recorder;
   } catch (err) {
     console.error('Failed to start recording:', err);
     return null;
   }
 };
 
-export const stopRecording = async (recording) => {
-  if (!recording) return null;
+export const stopRecording = async (recorder) => {
+  if (!recorder) return null;
   try {
-    await recording.stopAndUnloadAsync();
-    return recording.getURI();
+    await recorder.stop();
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+    });
+    return recorder.uri;
   } catch (err) {
     console.error('Failed to stop recording:', err);
     return null;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Audio } from 'expo-av';
+import { AudioModule } from 'expo-audio';
 import LoginScreen from './src/screens/LoginScreen';
 import ParentScreen from './src/screens/ParentScreen';
 import ChildScreen from './src/screens/ChildScreen';
@@ -32,7 +32,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    Audio.requestPermissionsAsync().catch(() => {});
+    AudioModule.requestRecordingPermissionsAsync().catch(() => {});
     registerForPushNotifications();
     roles.fetchRoles();
 
