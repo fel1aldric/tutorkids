@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -11,6 +11,7 @@ from app.models.parent import Parent
 from app.models.child import Child
 from app.models.event import Event
 from app.schemas.event import EventCreate, EventUpdate, EventRead
+from app.services.n8n import notify_event_created
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -29,6 +30,7 @@ def _can_access_child(parent: Parent, child_id: Optional[str], db: Session) -> b
 @router.post("/", response_model=EventRead)
 def create_event(
     event: EventCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     parent: Parent = Depends(get_current_parent),
 ):
@@ -49,6 +51,7 @@ def create_event(
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
+    background_tasks.add_task(notify_event_created, db_event.id)
     return db_event
 
 

@@ -6,6 +6,7 @@ class ParentBase(BaseModel):
     email: EmailStr
     first_name: str
     last_name: Optional[str] = None
+    whatsapp_number: str
 
 
 class ParentCreate(ParentBase):

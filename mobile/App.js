@@ -66,6 +66,8 @@ export default function App() {
         childPin={auth.childPin}
         setChildPin={auth.setChildPin}
         loading={auth.loading}
+        whatsappNumber={auth.whatsappNumber}
+        setWhatsappNumber={auth.setWhatsappNumber}
         onLoginParent={auth.loginParent}
         onRegisterParent={auth.registerParent}
         onLoginChild={auth.loginChild}

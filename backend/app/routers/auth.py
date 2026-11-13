@@ -24,6 +24,7 @@ def register_parent(parent: ParentCreate, db: Session = Depends(get_db)):
         email=parent.email,
         first_name=parent.first_name,
         last_name=parent.last_name,
+        whatsapp_number=parent.whatsapp_number,
         hashed_password=hash_password(parent.password),
     )
     db.add(db_parent)

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Set to 0 to disable cleanup, None to keep forever (not recommended).
     tts_retention_hours: int = 24
 
-
+    n8n_instance_webhook: str = "https://tutorkids.app.n8n.cloud/webhook-test/81bc0def-9ad7-4980-aed5-8a51a55a0fc6"
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()

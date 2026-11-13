@@ -11,6 +11,7 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(false);
 
   const [email, setEmail] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -50,16 +51,22 @@ export const useAuth = () => {
 
   const registerParent = async () => {
     setLoading(true);
-    await api('/auth/register-parent', {
+    let result = await api('/auth/register-parent', {
       method: 'POST',
       body: {
         email,
         password,
         first_name: firstName,
         last_name: lastName,
+        whatsapp_number: whatsappNumber,
       },
     });
-    alert('Inscription réussie ! Connectez-vous.');
+    console.log(result)
+    if ("detail" in result){
+      alert(result.detail);
+    } else {
+      alert('Inscription réussie ! Connectez-vous.');
+    }
     setLoading(false);
   };
 
@@ -102,6 +109,8 @@ export const useAuth = () => {
     setPassword,
     firstName,
     setFirstName,
+    whatsappNumber,
+    setWhatsappNumber,
     lastName,
     setLastName,
     childId,

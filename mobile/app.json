@@ -41,9 +41,7 @@
           "color": "#2e7d32"
         }
       ],
-      "expo-status-bar",
-      "expo-audio",
-      "expo-video"
+      "@react-native-community/datetimepicker"
     ]
   }
 }
