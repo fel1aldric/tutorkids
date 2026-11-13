@@ -33,3 +33,7 @@ mobile/package-lock.json
 # Alembic cache (keep migration scripts)
 alembic/__pycache__/
 alembic/versions/__pycache__/
+
+
+backend/voices
+backend/audio_outputs
