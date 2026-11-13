@@ -40,7 +40,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#2e7d32"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

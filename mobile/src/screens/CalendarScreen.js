@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,23 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Header from '../components/Header';
 import TabBar from '../components/TabBar';
 import { commonStyles } from '../styles/commonStyles';
 import { EVENT_TYPES, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } from '../constants';
 import { getWeekDays, sameDay, shortDayName, dayMonth, formatTime, pad2, parseApiDate } from '../utils/dates';
+
+// "YYYY-MM-DD HH:MM" -> Date (local)
+const parseLocal = (str) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/.exec(str || '');
+  if (!m) return new Date();
+  return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 9), +(m[5] || 0));
+};
+const fmtDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fmtTime = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 export default function CalendarScreen({
   user,
@@ -31,6 +42,9 @@ export default function CalendarScreen({
   onChangeTab,
 }) {
   const weekDays = getWeekDays(selectedCalendarDate);
+
+  // picker = { field: 'start_at' | 'end_at', mode: 'date' | 'time' } | null
+  const [picker, setPicker] = useState(null);
 
   const eventsForDay = (date) =>
     events
@@ -80,24 +94,49 @@ export default function CalendarScreen({
     );
   };
 
-  const updateStartDate = (date) => {
-    const time = newEvent.start_at.split(' ')[1] || '';
-    setNewEvent({ ...newEvent, start_at: date ? `${date} ${time}`.trim() : '' });
+  const onPickerChange = (event, selected) => {
+    // Android : fermer le dialog dans tous les cas
+    if (Platform.OS === 'android') {
+      const current = picker;
+      setPicker(null);
+      if (event.type !== 'set' || !selected || !current) return;
+      applyPicked(current, selected);
+      return;
+    }
+    // iOS : mise à jour en continu, fermeture via bouton OK
+    if (selected && picker) applyPicked(picker, selected);
   };
 
-  const updateStartTime = (time) => {
-    const date = newEvent.start_at.split(' ')[0] || '';
-    setNewEvent({ ...newEvent, start_at: `${date} ${time}`.trim() });
+  const applyPicked = ({ field, mode }, selected) => {
+    const value = newEvent[field] || '';
+    const [curDate, curTime] = value.split(' ');
+    const date = mode === 'date' ? fmtDate(selected) : curDate || fmtDate(new Date());
+    const time = mode === 'time' ? fmtTime(selected) : curTime || '09:00';
+    setNewEvent({ ...newEvent, [field]: `${date} ${time}` });
   };
 
-  const updateEndDate = (date) => {
-    const time = newEvent.end_at.split(' ')[1] || '';
-    setNewEvent({ ...newEvent, end_at: date ? `${date} ${time}`.trim() : '' });
-  };
-
-  const updateEndTime = (time) => {
-    const date = newEvent.end_at.split(' ')[0] || '';
-    setNewEvent({ ...newEvent, end_at: `${date} ${time}`.trim() });
+  const renderPickerButtons = (field, dateLabel, timeLabel) => {
+    const [d, t] = (newEvent[field] || '').split(' ');
+    return (
+      <View style={commonStyles.row}>
+        <TouchableOpacity
+          style={[commonStyles.input, commonStyles.inputHalf, pickerStyles.field]}
+          onPress={() => setPicker({ field, mode: 'date' })}
+        >
+          <Text style={d ? pickerStyles.value : pickerStyles.placeholder}>
+            {d || dateLabel}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[commonStyles.input, commonStyles.inputHalf, pickerStyles.field]}
+          onPress={() => setPicker({ field, mode: 'time' })}
+        >
+          <Text style={t ? pickerStyles.value : pickerStyles.placeholder}>
+            {t || timeLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -209,34 +248,23 @@ export default function CalendarScreen({
             value={newEvent.title}
             onChangeText={(t) => setNewEvent({ ...newEvent, title: t })}
           />
-          <View style={commonStyles.row}>
-            <TextInput
-              style={[commonStyles.input, commonStyles.inputHalf]}
-              placeholder="Date (YYYY-MM-DD)"
-              value={newEvent.start_at.split(' ')[0] || ''}
-              onChangeText={updateStartDate}
-            />
-            <TextInput
-              style={[commonStyles.input, commonStyles.inputHalf]}
-              placeholder="Heure (HH:MM)"
-              value={newEvent.start_at.split(' ')[1] || ''}
-              onChangeText={updateStartTime}
-            />
-          </View>
-          <View style={commonStyles.row}>
-            <TextInput
-              style={[commonStyles.input, commonStyles.inputHalf]}
-              placeholder="Fin date"
-              value={newEvent.end_at.split(' ')[0] || ''}
-              onChangeText={updateEndDate}
-            />
-            <TextInput
-              style={[commonStyles.input, commonStyles.inputHalf]}
-              placeholder="Fin heure"
-              value={newEvent.end_at.split(' ')[1] || ''}
-              onChangeText={updateEndTime}
-            />
-          </View>
+
+          {renderPickerButtons('start_at', 'Date de début', 'Heure de début')}
+          {renderPickerButtons('end_at', 'Date de fin', 'Heure de fin')}
+
+          {picker && (
+            <View>
+              <DateTimePicker
+                value={parseLocal(newEvent[picker.field])}
+                mode={picker.mode}
+                is24Hour
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onPickerChange}
+              />
+              {Platform.OS === 'ios' && <Button title="OK" onPress={() => setPicker(null)} />}
+            </View>
+          )}
+
           <View style={styles.pickerRow}>
             {EVENT_TYPES.map((t) => (
               <TouchableOpacity
@@ -312,6 +340,13 @@ export default function CalendarScreen({
     </View>
   );
 }
+
+// Nouveaux styles (à garder en plus de ton `styles` existant, que ton extrait n'incluait pas)
+const pickerStyles = StyleSheet.create({
+  field: { justifyContent: 'center' },
+  value: { color: '#000' },
+  placeholder: { color: '#999' },
+});
 
 const styles = StyleSheet.create({
   calendarToggle: {

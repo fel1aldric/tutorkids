@@ -18,7 +18,7 @@ class Parent(Base):
     push_provider = Column(String(50), default="expo")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
+    whatsapp_number = Column(String(100), nullable=True)
     children = relationship(
         "Child", secondary="parent_child_links", back_populates="parents"
     )

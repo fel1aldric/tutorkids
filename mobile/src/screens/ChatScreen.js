@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import Header from '../components/Header';
+import HeaderChild from '../components/HeaderChild';
 import { commonStyles } from '../styles/commonStyles';
 
 export default function ChatScreen({
@@ -35,22 +36,47 @@ export default function ChatScreen({
 }) {
   return (
     <View style={commonStyles.container}>
-      <Header title={title} onLogout={onLogout} />
+      {userType === 'parent' && (
+        <Header title={title} onLogout={onLogout} />
+      )}
+
+      {userType === 'child' && (
+        <HeaderChild title={title} onLogout={onLogout} />
+      )}
+      
       <Text style={commonStyles.label}>Connecté : {user?.first_name}</Text>
 
       <Text style={commonStyles.label}>Agent :</Text>
-      <ScrollView horizontal style={styles.roles} showsHorizontalScrollIndicator={false}>
-        {roles.map((role) => (
-          <TouchableOpacity
-            key={role.id}
-            style={[styles.roleChip, selectedRole === role.id && styles.roleChipActive]}
-            onPress={() => onSelectRole(role.id)}
-          >
-            <Text style={selectedRole === role.id ? styles.roleTextActive : styles.roleText}>
-              {role.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <ScrollView
+        horizontal
+        style={styles.roles}
+        contentContainerStyle={styles.rolesContent}
+        showsHorizontalScrollIndicator={false}
+      >
+        {roles.map((role) => {
+          const isActive = selectedRole === role.id;
+
+          return (
+            <TouchableOpacity
+              key={role.id}
+              activeOpacity={0.7}
+              style={[
+                styles.roleChip,
+                isActive && styles.roleChipActive,
+              ]}
+              onPress={() => onSelectRole(role.id)}
+            >
+              <Text
+                style={[
+                  styles.roleText,
+                  isActive && styles.roleTextActive,
+                ]}
+              >
+                {role.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {userType === 'parent' && selectedRole === 'kids_tutor' && children.length > 0 && (
@@ -164,4 +190,40 @@ const styles = StyleSheet.create({
   micText: {
     fontSize: 26,
   },
+  roles: {
+  flexGrow: 0,
+  marginVertical: 12,
+},
+
+rolesContent: {
+  paddingHorizontal: 4,
+  alignItems: 'center',
+},
+
+roleChip: {
+  paddingHorizontal: 18,
+  paddingVertical: 10,
+  borderRadius: 22,
+  backgroundColor: '#f1f3f5',
+  marginRight: 10,
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+},
+
+roleChipActive: {
+  backgroundColor: '#2e7d32',
+  borderColor: '#2e7d32',
+  elevation: 2,
+},
+
+roleText: {
+  color: '#444',
+  fontSize: 14,
+  fontWeight: '500',
+},
+
+roleTextActive: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
 });
